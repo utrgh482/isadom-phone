@@ -7,7 +7,7 @@
  *  판(VER)을 올리면 다음에 열 때 새 파일을 받습니다. 자료(IndexedDB)는 판과 상관없이 그대로입니다.
  *  v1.1: 비밀번호 — 처음에 이름과 함께 정하고, 열 때마다 확인합니다 (원문은 안 남기고 잠근 값만 저장).
  * ===================================================================== */
-const VER = 'isadom-phone-2026-09-28g';
+const VER = 'isadom-phone-2026-09-28i';
 const SHELL = ['./', './index.html', './phone-boot.js', './phone.js', './phone.css', './app.js', './direct.js', './consult.js', './todo.js', './dash.js',
   './tagup.js', './quali.js', './sync.js', './memowin.js', './base.css', './isadom.css', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   './fonts/Pretendard-Regular.woff2', './fonts/Pretendard-Bold.woff2', './fonts/yeoju-ceramic.woff'];

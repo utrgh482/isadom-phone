@@ -1,11 +1,13 @@
 /* =====================================================================
- *  이사돔 — PC ↔ 핸드폰 주고받기  sync.js  v1 (2026-09-28)
+ *  이사돔 — PC ↔ 핸드폰 주고받기  sync.js  v1.1 (2026-09-28)
  *  PC 이사돔과 핸드폰 이사돔이 같이 읽는 파일입니다 (app.js 는 고치지 않고 감싸서 덧붙임).
  *   1) 잠금 부품 (ISDCRYPT): SHA-256 · HMAC · PBKDF2 · 흐름 잠금 · ZIP 담기 — 순수 자바스크립트.
  *      (사무실 PC 이사돔은 http:// 로 열려서 브라우저의 내장 잠금(WebCrypto)이 꺼져 있기 때문에 직접 만들었습니다.
  *       양쪽이 같은 부품을 써야 하므로 핸드폰에서도 이것을 씁니다.)
  *   2) 주고받기 (SYNC): 할일·메모·상담·현황 건마다 "고친 시각"을 매겨 두고, 잠긴 파일 하나로 주고받으며
  *      나중 것이 이기는 규칙으로 합칩니다. PC → 핸드폰은 글만(개인정보 칸 뺌), 핸드폰 → PC 는 고친 것 + 새 사진.
+ *   3) 자동 우편함 (v1.1): 깃허브 비공개 저장소 하나를 우편함으로 써서, 같은 잠긴 덩어리를 프로그램이 알아서 넣고 꺼냅니다
+ *      (PC 이사돔이 열려 있는 동안 · 핸드폰 앱이 열려 있는 동안, 3분마다). 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.
  * ===================================================================== */
 
 /* ---------- 1) 잠금 부품 ---------- */
@@ -156,10 +158,10 @@ globalThis.ISDCRYPT={sha256,hmac,pbkdf2,lock,unlock,zipStore,zipRead,crc32,toHex
 (function(){
 'use strict';
 if(!window.DIRECT||!window.TODO||!window.CONSULT){ console.warn('sync.js: direct.js·todo.js·consult.js 뒤에 읽혀야 합니다'); return; }
-const SV='v1.0.1 (2026-09-28)';
+const SV='v1.1.1 (2026-09-28)';
 const PHONE=!!window.ISADOM_PHONE;
 const PHONE_BASE=2000000000;                 /* 핸드폰에서 새로 만드는 번호는 20억부터 — PC 번호(작은 수)와 겹치지 않게 */
-const C=globalThis.ISDCRYPT;
+const CR=globalThis.ISDCRYPT;   /* 암호 부품 (app.js 의 공통 서류 C 와 이름이 겹치지 않게 CR) */
 const iso=()=>new Date().toISOString();
 const q=(s,r)=>(r||document).querySelector(s);
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -185,7 +187,10 @@ const hOf=(t,x)=>hash(JSON.stringify(TYPES[t].shape(x)));
 
 /* ---------- 주고받기 장부 SY — 저장 덩어리 direct.sync 에 실림 (기기마다 따로) ---------- */
 function normSY(d){ d=d&&typeof d==='object'?d:{}; const o={v:1,meta:{},tomb:{},last:{sent:String((d.last&&d.last.sent)||''),recv:String((d.last&&d.last.recv)||''),recvMade:String((d.last&&d.last.recvMade)||'')},ack:Array.isArray(d.ack)?d.ack.slice():[],sent:Array.isArray(d.sent)?d.sent.slice():[],log:Array.isArray(d.log)?d.log.slice(0,30):[]};
-  TKEYS.forEach(t=>{ o.meta[t]=(d.meta&&d.meta[t]&&typeof d.meta[t]==='object')?d.meta[t]:{}; o.tomb[t]=(d.tomb&&d.tomb[t]&&typeof d.tomb[t]==='object')?d.tomb[t]:{}; }); return o; }
+  TKEYS.forEach(t=>{ o.meta[t]=(d.meta&&d.meta[t]&&typeof d.meta[t]==='object')?d.meta[t]:{}; o.tomb[t]=(d.tomb&&d.tomb[t]&&typeof d.tomb[t]==='object')?d.tomb[t]:{}; });
+  const m=d.mail; o.mail=(m&&typeof m==='object'&&m.owner)?{owner:String(m.owner||''),repo:String(m.repo||''),branch:String(m.branch||'main'),token:String(m.token||''),pw:String(m.pw||''),api:String(m.api||''),on:!!m.on,share:m.share!==false,fromPc:!!m.fromPc,
+    gotSha:String(m.gotSha||''),mySha:String(m.mySha||''),pushedSig:String(m.pushedSig||''),lastPull:String(m.lastPull||''),lastPush:String(m.lastPush||''),err:String(m.err||''),errAt:String(m.errAt||''),log:Array.isArray(m.log)?m.log.slice(0,20):[]}:null;
+  return o; }
 let SY=normSY(null);
 const _ser=DIRECT.serialize, _load=DIRECT.load;
 DIRECT.serialize=function(){ const o=_ser.apply(this,arguments); o.sync=clone(SY); return o; };
@@ -234,7 +239,9 @@ function roPayload(){
   return {projects,S:clone(S),C:clone(C),memoCats:(MEMO_CATS||[]).slice(),year:(typeof YEAR!=='undefined')?YEAR:null,direct:{projects:dprojects,rates:clone(DS.rates||{}),holidays:clone(DS.holidays||{}),tags:clone(DS.tags||[])},ctags:clone(CONSULT.tags())};
 }
 const whoAmI=()=>((typeof ME!=='undefined'&&ME&&ME.name)||(PHONE?'핸드폰':'PC'));
-async function buildPcToPhone(){ stamp(); return {app:'isadom-sync',dir:'pc2phone',ver:1,made:iso(),from:whoAmI(),sv:SV,ro:roPayload(),tw:twPayload(),tomb:clone(SY.tomb),ack:SY.ack.slice(),memoCats:(MEMO_CATS||[]).slice(),ctags:clone(CONSULT.tags()),dtags:clone(DS.tags||[])}; }
+async function buildPcToPhone(){ stamp(); const p={app:'isadom-sync',dir:'pc2phone',ver:1,made:iso(),from:whoAmI(),sv:SV,ro:roPayload(),tw:twPayload(),tomb:clone(SY.tomb),ack:SY.ack.slice(),memoCats:(MEMO_CATS||[]).slice(),ctags:clone(CONSULT.tags()),dtags:clone(DS.tags||[])};
+  const m=SY.mail; if(m&&m.owner&&m.repo&&m.token&&m.share!==false) p.mail={owner:m.owner,repo:m.repo,branch:m.branch||'main',token:m.token,api:m.api||''};   /* 핸드폰이 같은 우편함을 쓰도록 (비밀번호는 이 파일을 연 것과 같게) */
+  return p; }
 /* 핸드폰 → PC: 고친 것 네 가지 + 아직 안 보낸 새 사진(상담·메모에 붙은 것). 사진은 긴 변 2000px 로 줄여서 */
 const isPhotoRef=r=>!!r&&((r.kind==='memo'&&+r.id>0)||(r.kind==='ddoc'&&r.s!=null));
 function pendingPhotos(){ return FILES.filter(f=>f.id&&isPhotoRef(f.ref)&&!SY.sent.includes(f.id)); }
@@ -286,15 +293,17 @@ function addLog(e){ SY.log.unshift(e); SY.log=SY.log.slice(0,30); }
 async function fillFileData(){ for(const f of FILES){ if(!f._data&&f.blob){ try{ f._data=await blobToDataURL(f.blob); }catch(e){ f._data=null; } } } }
 async function applyMerged(build){   /* 새 자료 덩어리를 만들어 app.js 의 applySnapshot 으로 올립니다 (서버 판·파일 판 모두) */
   const server=(typeof SERVER!=='undefined')&&SERVER; if(!server) await fillFileData();
-  const snap=snapshot(!server); build(snap); snap.direct.sync=clone(SY);
+  const snap=snapshot(!server); snap.S=clone(S); snap.C=clone(C);   /* ★ snapshot() 의 S·C 는 원본 그대로라, 복사해 두지 않으면 applySnapshot 이 비우고 다시 채울 때 빈 것이 됨 (9/28 저녁 발견) */
+  build(snap); snap.direct.sync=clone(SY);
   await applySnapshot(snap,{quiet:true});
 }
 /* 이미 받은 것보다 먼저 만든 파일이면 막습니다 (옛 파일을 잘못 고른 경우 — 표·요약이 옛것으로 돌아가는 것을 막음) */
 function notOlder(p){ if(SY.last.recvMade&&p.made&&String(p.made)<SY.last.recvMade) throw new Error(`이미 받은 파일(${fmtT(SY.last.recvMade)})보다 먼저 만든 파일입니다 (${fmtT(p.made)}). 최근 파일을 골라 주세요.`); }
 /* 핸드폰: PC 에서 온 것 받기 */
-async function importFromPC(p){
+async function importFromPC(p,opt){
   if(!p||p.app!=='isadom-sync'||p.dir!=='pc2phone') throw new Error('PC 에서 만든 파일이 아닙니다 (핸드폰용 파일을 골라 주세요).');
-  notOlder(p);
+  opt=opt||{}; if(!opt.mailbox) notOlder(p);   /* 손으로 고른 파일만 옛 파일 검사 (우편함은 늘 최신 것 하나라 sha 로 봄) */
+  if(p.mail&&p.mail.owner&&p.mail.token&&opt.pw){ const m=SY.mail||{}; if(!m.owner||m.fromPc){ SY.mail=normSY({mail:Object.assign({},m,{owner:p.mail.owner,repo:p.mail.repo,branch:p.mail.branch||'main',token:p.mail.token,api:p.mail.api||'',pw:opt.pw,on:true,fromPc:true})}).mail; MAIL_NEW=true; } }   /* PC 가 실어 보낸 우편함 설정 — 비밀번호는 이 파일을 연 것 */
   stamp(); const lastX=lastExchange(), merged={}; for(const t of TKEYS) merged[t]=mergeType(t,p.tw&&p.tw[t],p.tomb&&p.tomb[t],lastX);
   SY.last.recv=iso(); SY.last.recvMade=String(p.made||''); (p.ack||[]).forEach(id=>{ if(!SY.sent.includes(id)) SY.sent.push(id); });
   await applyMerged(snap=>{
@@ -306,12 +315,12 @@ async function importFromPC(p){
       consults:{tags:unionTags(p.ctags||ro.ctags,(d.consults||{}).tags),list:merged.consult.out.map(c=>Object.assign({farm:'',tel:''},c))}});
   });
   afterApply(merged); const s=sumN(merged); addLog({t:iso(),dir:'in',from:p.from||'',made:p.made||'',n:s,conf:conflicts(s)});
-  await saveToServer(true); return {n:s,conf:conflicts(s),made:p.made,from:p.from};
+  await saveToServer(true); return {n:s,conf:conflicts(s),made:p.made,from:p.from,mail:!!p.mail};
 }
 /* PC: 핸드폰에서 온 것 받기 — 상담의 농가명·전화번호, 메모의 농가 칸은 PC 것이 그대로 남습니다 */
-async function importFromPhone(p,onPhoto){
+async function importFromPhone(p,onPhoto,opt){
   if(!p||p.app!=='isadom-sync'||p.dir!=='phone2pc') throw new Error('핸드폰에서 만든 파일이 아닙니다 (PC 로 보낼 파일을 골라 주세요).');
-  notOlder(p);
+  opt=opt||{}; if(!opt.mailbox) notOlder(p);
   stamp(); const lastX=lastExchange(), merged={}; for(const t of TKEYS) merged[t]=mergeType(t,p.tw&&p.tw[t],p.tomb&&p.tomb[t],lastX);
   SY.last.recv=iso(); SY.last.recvMade=String(p.made||'');
   await applyMerged(snap=>{
@@ -335,8 +344,8 @@ async function importFromPhone(p,onPhoto){
 
 /* ---------- 파일 ↔ 덩어리 ---------- */
 const stampName=()=>{ const d=new Date(), p2=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`; };
-async function packFile(payload,pw,onProgress){ const locked=await C.lock(payload,pw,onProgress); return C.zipStore('isadom.isd',locked); }
-async function unpackFile(u8,pw,onProgress){ u8=new Uint8Array(u8); let raw=u8; if(u8.length>4&&u8[0]===0x50&&u8[1]===0x4b){ const z=C.zipRead(u8); const e=z.entries.find(x=>/\.isd$/i.test(x.name))||z.entries[0]; if(!e) throw new Error('zip 안이 비어 있습니다.'); raw=await z.data(e); } return C.unlock(raw,pw,onProgress); }
+async function packFile(payload,pw,onProgress){ const locked=await CR.lock(payload,pw,onProgress); return CR.zipStore('isadom.isd',locked); }
+async function unpackFile(u8,pw,onProgress){ u8=new Uint8Array(u8); let raw=u8; if(u8.length>4&&u8[0]===0x50&&u8[1]===0x4b){ const z=CR.zipRead(u8); const e=z.entries.find(x=>/\.isd$/i.test(x.name))||z.entries[0]; if(!e) throw new Error('zip 안이 비어 있습니다.'); raw=await z.data(e); } return CR.unlock(raw,pw,onProgress); }
 function b64Chunks(u8){ let s=''; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); }
 function giveFile(u8,name){
   if(PHONE&&window.IsadomApp&&typeof IsadomApp.saveFile==='function'){ IsadomApp.saveFile(name,b64Chunks(u8),'application/zip'); return '다운로드 폴더'; }
@@ -357,6 +366,103 @@ function askPw(o){ o=o||{}; return new Promise(res=>{
   q('#syPw-x').onclick=()=>done(null);
 }); }
 
+/* ---------- 3) 자동 우편함 — 깃허브 비공개 저장소 (Git 데이터 API: blob → tree → 부모 없는 commit → ref 를 강제로 옮김 = 저장소에 늘 최신 것 하나만) ---------- */
+const MAIL_MIN=3, PC_FILE='pc-outbox.isd', PH_FILE='phone-outbox.isd';
+let MAIL_BUSY=false, MAIL_NEW=false, LAST_INPUT=0, MAIL_LASTRUN=0;
+document.addEventListener('input',()=>{ LAST_INPUT=Date.now(); },true); document.addEventListener('keydown',()=>{ LAST_INPUT=Date.now(); },true);
+const mailOn=()=>{ const m=SY.mail; return !!(m&&m.on&&m.owner&&m.repo&&m.token&&m.pw); };
+const ghApi=(m)=>String((m&&m.api)||'https://api.github.com').replace(/\/$/,'');
+function ghHeaders(m,raw,json){ const h={'Accept':raw?'application/vnd.github.raw+json':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}; if(m&&m.token) h['Authorization']='Bearer '+m.token; if(json) h['Content-Type']='application/json'; return h; }
+async function gh(m,method,path,body,o){ o=o||{}; let r; try{ r=await fetch(ghApi(m)+path,{method,headers:ghHeaders(m,o.raw,!!body),body:body?JSON.stringify(body):undefined,cache:'no-store'}); }
+  catch(e){ throw new Error('깃허브에 닿지 못했습니다 (인터넷·사무실 차단 확인): '+(e&&e.message||e)); }
+  if(r.status===404&&o.allow404) return {status:404};
+  if(!r.ok){ let t=''; try{ t=(await r.json()).message||''; }catch(e){} if(r.status===401) t='토큰이 틀리거나 만료됐습니다'; if(r.status===403&&!t) t='권한이 없습니다 (토큰의 Contents 쓰기 권한)'; if(r.status===404) t='저장소를 못 찾았습니다 (이름·토큰 권한 확인)'; throw new Error(`깃허브 ${r.status}${t?' — '+t:''}`); }
+  return o.raw?{status:r.status,bytes:new Uint8Array(await r.arrayBuffer())}:{status:r.status,json:await r.json()}; }
+const repoPath=m=>`/repos/${encodeURIComponent(m.owner)}/${encodeURIComponent(m.repo)}`;
+async function ghTree(m){ const br=m.branch||'main'; const ref=await gh(m,'GET',`${repoPath(m)}/git/ref/heads/${encodeURIComponent(br)}`,null,{allow404:true}); if(ref.status===404) return {commit:null,tree:null,files:{}};
+  const cs=ref.json.object.sha, c=await gh(m,'GET',`${repoPath(m)}/git/commits/${cs}`), ts=c.json.tree.sha, t=await gh(m,'GET',`${repoPath(m)}/git/trees/${ts}`), files={};
+  (t.json.tree||[]).forEach(e=>{ if(e.type==='blob') files[e.path]={sha:e.sha,size:e.size}; }); return {commit:cs,tree:ts,files}; }
+async function ghGetBlob(m,sha){ const r=await gh(m,'GET',`${repoPath(m)}/git/blobs/${sha}`,null,{raw:true}); return r.bytes; }
+async function ghPutFile(m,name,u8){
+  const b=await gh(m,'POST',`${repoPath(m)}/git/blobs`,{content:b64Chunks(u8),encoding:'base64'});
+  const cur=await ghTree(m), treeBody={tree:[{path:name,mode:'100644',type:'blob',sha:b.json.sha}]}; if(cur.tree) treeBody.base_tree=cur.tree;
+  const t=await gh(m,'POST',`${repoPath(m)}/git/trees`,treeBody);
+  const c=await gh(m,'POST',`${repoPath(m)}/git/commits`,{message:`${name} ${iso()}`,tree:t.json.sha,parents:[]});
+  const br=m.branch||'main';
+  if(cur.commit) await gh(m,'PATCH',`${repoPath(m)}/git/refs/heads/${encodeURIComponent(br)}`,{sha:c.json.sha,force:true}); else await gh(m,'POST',`${repoPath(m)}/git/refs`,{ref:'refs/heads/'+br,sha:c.json.sha});
+  return b.json.sha; }
+/* 연결 시험: ① 깃허브 창구가 열리는지(토큰 없이) ② 저장소·토큰·쓰기 권한 */
+async function mailTest(cfg){ const out=[]; const api=ghApi(cfg);
+  try{ const r=await fetch(api+'/rate_limit',{cache:'no-store'}); out.push(r.ok?'① 깃허브 창구(api.github.com) 연결 ○':`① 깃허브 창구 응답 ${r.status}`); if(!r.ok) return out; }
+  catch(e){ out.push('① 깃허브 창구(api.github.com)에 못 닿음 — 사무실 인터넷이 막았을 수 있습니다: '+(e&&e.message||e)); return out; }
+  if(!(cfg.owner&&cfg.repo&&cfg.token)){ out.push('② 저장소·토큰을 넣으면 접근도 확인합니다'); return out; }
+  try{ const r=await gh(cfg,'GET',repoPath(cfg)); const j=r.json; out.push(`② 저장소 ○ ${j.full_name||cfg.owner+'/'+cfg.repo} · ${j.private?'비공개':'⚠ 공개 저장소입니다 (잠긴 덩어리라 내용은 안 보이지만 비공개를 권함)'} · 쓰기 ${(j.permissions&&j.permissions.push)?'○':'✕ — 토큰에 Contents 쓰기(Read and write) 권한이 필요합니다'}`);
+    const t=await ghTree(cfg); out.push(t.commit?`③ 우편함 안: ${Object.keys(t.files).filter(f=>/outbox/.test(f)).join(', ')||'(아직 비어 있음)'}`:'③ 우편함이 비어 있습니다 (첫 보내기 때 채워짐)'); }
+  catch(e){ out.push('② 저장소 확인 실패: '+(e&&e.message||e)); }
+  return out; }
+function userBusy(){ const a=document.activeElement; const typing=!!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!a.closest('#syPw,#syMail,#plock')); const panel=q('#panel')&&q('#panel').classList.contains('open'); const viewer=q('#viewer')&&!q('#viewer').hidden; return typing||panel||viewer||(Date.now()-LAST_INPUT<20000)||!!BUSY; }
+function preSig(){ if(PHONE) return hash(JSON.stringify({tw:twPayload(),tomb:SY.tomb,ph:pendingPhotos().map(f=>f.id)})); return hash(JSON.stringify({tw:twPayload(),tomb:SY.tomb,ack:SY.ack,ro:roPayload(),mail:!!(SY.mail&&SY.mail.share!==false)})); }
+function mailLog(e){ const m=SY.mail; if(!m) return; m.log=[e].concat(m.log||[]).slice(0,20); }
+async function mailCycle(mode){   /* 'auto'(3분마다·조용히) 또는 'manual'(단추) — 받기 → 보내기 */
+  if(!mailOn()||MAIL_BUSY) return null; if(typeof LOGGED!=='undefined'&&!LOGGED) return null; if(mode==='auto'&&(document.hidden||userBusy())) return null;
+  /* ※ 가져오기(applySnapshot → DIRECT.load)를 거치면 SY 가 새 객체로 바뀌므로, SY.mail 은 그때그때 다시 읽습니다 (M()) */
+  const M=()=>SY.mail||{};
+  MAIL_BUSY=true; MAIL_LASTRUN=Date.now(); const out={pulled:null,pushed:false,err:''}; const say=t=>{ if(mode==='manual') msg('#sy-mail-msg',t); };
+  try{
+    say('우편함 보는 중…'); const tree=await ghTree(M());
+    const theirs=PHONE?PC_FILE:PH_FILE, mine=PHONE?PH_FILE:PC_FILE, f=tree.files[theirs];
+    if(f&&f.sha!==M().gotSha){ say('받는 중…'); stamp(); const bytes=await ghGetBlob(M(),f.sha); let payload; try{ payload=await CR.unlock(bytes,M().pw); }catch(e){ throw new Error('우편함 파일을 못 열었습니다 — 양쪽 자동 우편함 비밀번호가 같은지 확인해 주세요'); }
+      const r=PHONE?await importFromPC(payload,{mailbox:true}):await importFromPhone(payload,null,{mailbox:true}); M().gotSha=f.sha; M().lastPull=iso(); out.pulled=r; mailLog({t:iso(),dir:'in',n:r.n,conf:r.conf,photos:r.photos||0});
+      if(mode==='auto'&&typeof PAGE!=='undefined'&&PAGE&&PAGE!=='psync'){ try{ const y=window.scrollY; showPage(PAGE==='detail'?'grid':PAGE); window.scrollTo(0,y); }catch(e){} } }
+    const pre=preSig(), mineF=tree.files[mine], need=(pre!==M().pushedSig)||(!!M().mySha&&(!mineF||mineF.sha!==M().mySha));
+    if(need){ say('보내는 중…'); const payload=PHONE?await buildPhoneToPc():await buildPcToPhone(); const u8=await CR.lock(payload,M().pw); const sha=await ghPutFile(M(),mine,u8); M().mySha=sha; M().pushedSig=pre; M().lastPush=iso(); SY.last.sent=M().lastPush; out.pushed=true; mailLog({t:iso(),dir:'out',size:u8.length,photos:PHONE?(payload.photos||[]).length:0}); }
+    M().err=''; M().errAt='';
+  }catch(e){ out.err=e&&e.message||String(e); M().err=out.err; M().errAt=iso(); }
+  MAIL_BUSY=false; if(typeof saveToServer==='function') saveToServer(true);
+  if(typeof PAGE!=='undefined'&&PAGE==='psync'){ drawPage(); if(mode==='manual') msg('#sy-mail-msg',out.err?'안 됐습니다: '+out.err:(out.pulled||out.pushed)?[out.pulled?`받음: ${tellN(out.pulled.n)}${out.pulled.photos?` · 사진 ${out.pulled.photos}장`:''}${out.pulled.conf?` · 양쪽이 달라 나중 것으로 맞춘 건 ${out.pulled.conf}개`:''}`:'',out.pushed?'보냄 ○':''].filter(Boolean).join(' / '):'새로 주고받을 것이 없습니다.',!!out.err); }
+  return out; }
+setInterval(()=>{ if(!mailOn()) return; if(Date.now()-MAIL_LASTRUN<MAIL_MIN*60000) return; mailCycle('auto'); },30000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&mailOn()&&Date.now()-MAIL_LASTRUN>60000) setTimeout(()=>mailCycle('auto'),2500); });
+setTimeout(()=>{ if(mailOn()) mailCycle('auto'); },15000);   /* 열고 15초 뒤 한 번 */
+/* 설정 창 */
+function mailSettings(){ return new Promise(res=>{
+  let w=q('#syMail'); if(!w){ w=document.createElement('div'); w.id='syMail'; w.className='loginWrap syPw'; w.hidden=true;
+    w.innerHTML=`<form class="loginBox" autocomplete="off" novalidate style="max-width:440px"><h1>자동 우편함 설정</h1><p class="desc">깃허브에 만든 <b>비공개 저장소</b>와 <b>토큰</b>을 넣습니다. 우편함에는 비밀번호 없이는 못 여는 덩어리만 놓입니다.</p>
+      <label class="fld">저장소 (아이디/이름)<input id="sm-repo" placeholder="예: utrgh482/isadom-mailbox"></label>
+      <label class="fld">토큰 (github_pat_… 또는 ghp_…)<input id="sm-token" type="password" autocomplete="off"></label>
+      <label class="fld">자동 우편함 비밀번호 (4글자 이상 — 양쪽이 같아야 함)<input id="sm-pw" type="password" autocomplete="off"></label>
+      <label class="fld" style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="sm-on" style="width:auto;margin:0"> 켜기 (열어 두면 3분마다 저절로 주고받기)</label>
+      <div class="msg" id="sm-msg"></div>
+      <div class="row"><button class="btn primary" type="submit" id="sm-save">저장</button><button type="button" class="btn" id="sm-test">연결 시험</button><button type="button" class="btn" id="sm-x">취소</button></div>
+      <p class="hint" style="margin-top:12px">토큰 만들기: github.com → 오른쪽 위 사진 → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → Repository access 에서 우편함 저장소만 고르고 → Permissions › Repository permissions › <b>Contents: Read and write</b> → Generate. 만료일이 있으니 그때 새 토큰으로 바꿔 넣습니다.</p></form>`;
+    document.body.appendChild(w); }
+  const m=SY.mail||{}; q('#sm-repo').value=m.owner?`${m.owner}/${m.repo}`:''; q('#sm-token').value=m.token||''; q('#sm-pw').value=m.pw||''; q('#sm-on').checked=m.on!==false; q('#sm-msg').textContent=''; w.hidden=false; setTimeout(()=>{ try{ q(m.owner?'#sm-token':'#sm-repo').focus(); }catch(e){} },30);
+  const read=()=>{ const rp=q('#sm-repo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').replace(/\/+$/,''); const [owner,repo]=rp.split('/'); return {owner:(owner||'').trim(),repo:(repo||'').trim(),branch:(m.branch||'main'),token:q('#sm-token').value.trim(),pw:q('#sm-pw').value,api:m.api||'',on:q('#sm-on').checked}; };
+  const done=v=>{ w.hidden=true; form.onsubmit=null; q('#sm-x').onclick=null; q('#sm-test').onclick=null; res(v); };
+  const form=q('form',w);
+  q('#sm-test').onclick=async()=>{ const c=read(); q('#sm-msg').textContent='시험 중…'; const lines=await mailTest(c); q('#sm-msg').innerHTML=lines.map(E).join('<br>'); };
+  form.onsubmit=e=>{ e.preventDefault(); const c=read(); const bad=!c.owner||!c.repo?'저장소를 아이디/이름 꼴로 넣어 주세요.':!c.token?'토큰을 넣어 주세요.':c.pw.length<4?'비밀번호는 4글자 이상으로 해 주세요.':''; if(bad){ q('#sm-msg').textContent=bad; return; }
+    SY.mail=normSY({mail:Object.assign({},m,c,{fromPc:false,pushedSig:'',mySha:m.owner===c.owner&&m.repo===c.repo?m.mySha:'',gotSha:m.owner===c.owner&&m.repo===c.repo?m.gotSha:'',err:''})}).mail; PW_CACHE=c.pw; if(typeof saveToServer==='function') saveToServer(true); done(SY.mail); };
+  q('#sm-x').onclick=()=>done(null);
+}); }
+function mailCardHTML(){ const m=SY.mail; const on=mailOn();
+  const st=!m?'설정 안 됨':(on?`켜짐 · ${E(m.owner)}/${E(m.repo)}${m.fromPc?' (PC 에서 받은 설정)':''}`:`꺼짐 · ${E(m.owner||'')}/${E(m.repo||'')}${!m.pw?' · 비밀번호 없음':''}`);
+  return `<div class="card" id="sy-mailcard"><h2>자동 우편함 <span class="pill grey">깃허브</span></h2>
+    <p class="desc">${PHONE?'앱을 열어 두면 3분마다 PC 이사돔과 저절로 주고받습니다(PC 이사돔도 열려 있을 때). 밴드로 파일을 옮길 필요가 없습니다.':'이 화면이 열려 있는 동안 3분마다 핸드폰과 저절로 주고받습니다(핸드폰 앱도 열려 있을 때). 우편함은 유진 님 깃허브의 비공개 저장소이고, 놓이는 것은 아래 파일 방식과 똑같은 잠긴 덩어리입니다. 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.'}</p>
+    <div class="kv2"><span>상태</span><b>${st}</b><span>마지막 받음</span><b>${E(fmtT(m&&m.lastPull))}</b><span>마지막 보냄</span><b>${E(fmtT(m&&m.lastPush))}</b>${m&&m.err?`<span>오류</span><b class="bad">${E(m.err)} <small>(${E(fmtT(m.errAt))})</small></b>`:''}</div>
+    <div class="row" style="margin-top:10px"><button type="button" class="btn primary" id="sy-mail-now" ${on&&!MAIL_BUSY?'':'disabled'}>${MAIL_BUSY?'주고받는 중…':'지금 주고받기'}</button><button type="button" class="btn" id="sy-mail-set">${m?'설정 고치기':'설정'}</button><button type="button" class="btn" id="sy-mail-test">연결 시험</button>${m?`<button type="button" class="btn" id="sy-mail-toggle">${m.on?'끄기':'켜기'}</button>`:''}</div>
+    <div class="msg" id="sy-mail-msg"></div>
+    ${m&&m.log&&m.log.length?`<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">자동 우편함 기록 ${m.log.length}건</summary><table class="sylog">${m.log.map(e=>`<tr><td>${E(fmtT(e.t))}</td><td>${e.dir==='in'?'받음':'보냄'}</td><td>${e.dir==='in'?E(tellN(e.n||{}))+(e.photos?` · 사진 ${e.photos}장`:'')+(e.conf?` · <b>나중 것으로 맞춘 건 ${e.conf}개</b>`:''):`${Math.round((e.size||0)/1024)}KB${e.photos?` · 사진 ${e.photos}장`:''}`}</td></tr>`).join('')}</table></details>`:''}
+    ${!PHONE&&!m?'<p class="hint" style="margin-top:8px">처음 한 번: ① 깃허브에서 비공개 저장소(예: isadom-mailbox, README 포함)를 만들고 ② 토큰을 만들어 ③ [설정]에 넣고 [연결 시험] → [저장] ④ 그다음 [핸드폰으로 보낼 파일 만들기]를 한 번 더 해서 밴드로 핸드폰에 넣으면, 핸드폰이 설정을 받아 자동으로 바뀝니다.</p>':''}
+    ${PHONE&&!m?'<p class="hint" style="margin-top:8px">PC 이사돔 [핸드폰]에서 자동 우편함을 설정한 뒤 만든 파일을 한 번 가져오면 설정이 따라옵니다. 직접 넣으려면 [설정].</p>':''}
+  </div>`; }
+function wireMailCard(){
+  const now=q('#sy-mail-now'); if(now) now.onclick=()=>mailCycle('manual');
+  const set=q('#sy-mail-set'); if(set) set.onclick=async()=>{ const r=await mailSettings(); if(r){ drawPage(); msg('#sy-mail-msg','저장했습니다.'+(PHONE?'':' 이제 [핸드폰으로 보낼 파일 만들기]를 한 번 더 해서 핸드폰에 넣어 주세요 — 핸드폰이 우편함 설정을 받습니다.')); if(mailOn()) setTimeout(()=>mailCycle('manual'),800); } };
+  const test=q('#sy-mail-test'); if(test) test.onclick=async()=>{ msg('#sy-mail-msg','시험 중…'); const lines=await mailTest(SY.mail||{}); const el=q('#sy-mail-msg'); if(el){ el.innerHTML=lines.map(E).join('<br>'); el.classList.remove('bad'); } };
+  const tg=q('#sy-mail-toggle'); if(tg) tg.onclick=()=>{ if(!SY.mail) return; SY.mail.on=!SY.mail.on; if(typeof saveToServer==='function') saveToServer(true); drawPage(); };
+}
+
 /* ---------- 화면 (#page-psync) — PC 와 핸드폰이 다르게 ---------- */
 const fmtT=s=>{ if(!s) return '—'; const d=new Date(s); return isNaN(d)?String(s):d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); };
 function changedSince(){ const x=lastExchange(); const n={}; for(const t of TKEYS){ let c=0; const meta=SY.meta[t]; Object.keys(meta).forEach(id=>{ if(!x||meta[id].u>x) c++; }); Object.keys(SY.tomb[t]).forEach(id=>{ if(!x||SY.tomb[t][id]>x) c++; }); n[t]=c; } return n; }
@@ -367,7 +473,8 @@ function drawPage(){
   const pg=q('#page-psync'); if(!pg) return; const ch=changedSince(), chTxt=TKEYS.map(t=>ch[t]?`${TYPES[t].name} ${ch[t]}`:'').filter(Boolean).join(' · ')||'없음';
   if(PHONE){
     const pend=pendingPhotos();
-    pg.innerHTML=`<div class="lede">PC 와 주고받기</div><div class="lede-sub">사무실 PC 이사돔과 이 핸드폰은 서로 연결되지 않습니다. 잠긴 파일 하나를 <b>밴드</b>로 주고받아 맞춥니다.</div>
+    pg.innerHTML=`<div class="lede">PC 와 주고받기</div><div class="lede-sub">사무실 PC 이사돔과 이 핸드폰은 서로 연결되지 않습니다. 잠긴 덩어리를 <b>자동 우편함</b>(깃허브)이나 <b>밴드</b> 파일로 주고받아 맞춥니다.</div>
+      ${mailCardHTML()}
       <div class="card"><h2>1. PC 에서 온 파일 가져오기</h2><p class="desc">밴드에서 내려받은 <b>이사돔_핸드폰으로_….zip</b> 을 고르고 잠금 비밀번호를 넣으면, 지도사업 표·사업 요약·직접 사업 숫자가 새로 들어오고 할일·메모·상담·현황 건은 나중에 고친 것이 남도록 합쳐집니다.</p>
         <div class="row"><button type="button" class="btn primary" id="sy-in" ${BUSY?'disabled':''}>${BUSY==='in'?'가져오는 중…':'파일 고르기'}</button><span class="hint">마지막 가져옴 ${E(fmtT(SY.last.recv))}</span></div><div class="msg" id="sy-in-msg"></div></div>
       <div class="card"><h2>2. PC 로 보낼 파일 만들기</h2><p class="desc">이 핸드폰에서 고친 것과 새 사진을 잠긴 파일 하나로 만들어 다운로드 폴더에 둡니다. 밴드에 올린 뒤 PC 이사돔의 [핸드폰] → [핸드폰에서 가져오기]로 받습니다.</p>
@@ -377,23 +484,26 @@ function drawPage(){
       <div class="card" id="sy-phoneinfo"><h2>이 핸드폰 안</h2><div class="kv2" id="sy-kv"><span>불러오는 중…</span></div><p class="hint">자료는 이 핸드폰 안(앱 저장 공간)에만 있습니다. 앱을 지우면 같이 지워지니, 고친 것은 PC 로 보내 두세요.</p></div>`;
     fetch('/api/phone/info').then(r=>r.json()).catch(()=>({})).then(info=>{ const kv=q('#sy-kv'); if(!kv) return; kv.innerHTML=`<span>자료 판</span><b>${info&&info.version!=null?info.version:'—'}</b><span>마지막 저장</span><b>${info&&info.updatedAt?E(String(info.updatedAt).slice(5,16)):'—'}</b><span>사진·파일</span><b>${info&&info.files!=null?`${info.files}장 · ${Math.round((info.bytes||0)/1024/1024*10)/10}MB`:'—'}</b><span>핸드폰 서버</span><b>${E(info&&info.sw||'—')}</b><span>주고받기</span><b>${E(SV)}</b>`; });
   } else {
-    pg.innerHTML=`<div class="lede">핸드폰과 주고받기</div><div class="lede-sub">핸드폰 이사돔과 이 PC 는 서로 연결되지 않습니다. 잠긴 파일 하나를 <b>밴드</b>(비공개 1인 밴드)로 주고받아 맞춥니다. 핸드폰에는 <b>글만</b> 가고, 핸드폰에서는 고친 것과 <b>새 사진</b>이 옵니다.</div>
-      <div class="card"><h2>핸드폰으로 보내기</h2>
+    pg.innerHTML=`<div class="lede">핸드폰과 주고받기</div><div class="lede-sub">핸드폰 이사돔과 이 PC 는 서로 연결되지 않습니다. 잠긴 덩어리를 <b>자동 우편함</b>(깃허브 비공개 저장소)이나 <b>밴드</b> 파일로 주고받아 맞춥니다. 핸드폰에는 <b>글만</b> 가고, 핸드폰에서는 고친 것과 <b>새 사진</b>이 옵니다.</div>
+      ${mailCardHTML()}
+      <div class="card"><h2>핸드폰으로 보내기 (밴드 파일)</h2>
         <p class="desc"><b>가는 것</b>: 지도사업 진행현황 표와 사업 요약(농가 이름·주민번호·주소·전화·보탬e 계정·업체 이름·통화 기록은 <u>비워서</u>) · 직접 사업 요약·가계부 숫자(근로자·출근부는 안 가고, 지출 줄의 거래처는 비워서) · 현황 건 · 할일 · 메모(농가 칸 빼고) · 상담(농가명·전화번호 빼고, 주소는 감) · 지원자격 조건.<br><b>안 가는 것</b>: 스캔·사진, 계획표, 월급 계산기, 부가세, 관리.</p>
         <div class="row"><button type="button" class="btn primary" id="sy-out" ${BUSY?'disabled':''}>${BUSY==='out'?'만드는 중…':'핸드폰으로 보낼 파일 만들기'}</button><span class="hint">마지막 만듦 ${E(fmtT(SY.last.sent))} · 그 뒤 고친 것: ${E(chTxt)}</span></div><div class="msg" id="sy-out-msg"></div>
         <p class="hint">만든 파일(이사돔_핸드폰으로_날짜.zip)을 밴드에 올리고, 핸드폰 이사돔 [더보기] → [PC 와 주고받기] → [파일 고르기]로 받습니다. 잠금 비밀번호는 양쪽이 같아야 합니다.</p></div>
-      <div class="card"><h2>핸드폰에서 가져오기</h2>
+      <div class="card"><h2>핸드폰에서 가져오기 (밴드 파일)</h2>
         <p class="desc">핸드폰이 만든 <b>이사돔_PC로_….zip</b>(밴드에서 내려받은 것)을 고릅니다. 할일·메모·상담·현황 건은 나중에 고친 것이 남고(양쪽이 다르면 몇 개인지 알려 줍니다), 핸드폰에서 찍은 새 사진은 상담·메모에 붙습니다. 상담의 농가명·전화번호, 메모의 농가 칸은 PC 것이 그대로 남습니다.</p>
         <div class="row"><button type="button" class="btn primary" id="sy-in" ${BUSY?'disabled':''}>${BUSY==='in'?'가져오는 중…':'핸드폰에서 온 파일 고르기'}</button><span class="hint">마지막 가져옴 ${E(fmtT(SY.last.recv))} · 받은 사진 ${SY.ack.length}장</span></div><div class="msg" id="sy-in-msg"></div></div>
       <div class="card"><h2>지난 기록</h2>${logHTML()}</div>`;
   }
   let fi=q('#sy-file'); if(!fi){ fi=document.createElement('input'); fi.type='file'; fi.id='sy-file'; fi.accept=PHONE?'*/*':'.zip,.isd,application/zip,application/octet-stream'; fi.hidden=true; document.body.appendChild(fi); }   /* 핸드폰은 모든 파일 — 파일 고르는 앱이 zip 을 걸러 버리지 않게 */
+  wireMailCard();
   const bo=q('#sy-out'); if(bo) bo.onclick=()=>doExport();
   const bi=q('#sy-in'); if(bi) bi.onclick=()=>{ fi.value=''; fi.onchange=()=>{ const f=fi.files[0]; fi.value=''; if(f) doImport(f); }; fi.click(); };
 }
 const msg=(id,t,bad)=>{ const el=q(id); if(el){ el.textContent=t; el.classList.toggle('bad',!!bad); } };
 async function doExport(){
   if(BUSY) return;
+  if(!PW_CACHE&&SY.mail&&SY.mail.pw) PW_CACHE=SY.mail.pw;   /* 자동 우편함 비밀번호와 같게 (핸드폰이 설정을 받으려면 같아야 함) */
   const pw=await askPw({title:PHONE?'PC 로 보낼 파일 잠그기':'핸드폰으로 보낼 파일 잠그기',msg:'받는 쪽에서 같은 비밀번호를 넣어야 열립니다. (이사돔 로그인 비밀번호와 달라도 됩니다)',confirm:!PW_CACHE,button:'파일 만들기'}); if(!pw) return;
   BUSY='out'; drawPage();
   try{
@@ -412,13 +522,14 @@ async function doImport(file){
   try{
     msg('#sy-in-msg','여는 중…'); const u8=await readFile(file); const payload=await unpackFile(u8,pw,f=>msg('#sy-in-msg',`여는 중… ${Math.round(f*100)}%`));
     msg('#sy-in-msg','합치는 중…');
-    const r=PHONE?await importFromPC(payload):await importFromPhone(payload,(i,n)=>msg('#sy-in-msg',`사진 받는 중 ${i}/${n}…`));
+    const r=PHONE?await importFromPC(payload,{pw}):await importFromPhone(payload,(i,n)=>msg('#sy-in-msg',`사진 받는 중 ${i}/${n}…`));
     BUSY=''; drawPage();
-    const parts=[`가져왔습니다 (${E(r.from||'')} · ${fmtT(r.made)} 에 만든 파일).`,tellN(r.n)]; if(r.photos) parts.push(`사진 ${r.photos}장 붙임`); if(r.skipped) parts.push(`(붙을 자리가 없어 건너뛴 사진 ${r.skipped}장)`); if(r.conf) parts.push(`양쪽이 달라 나중 것으로 맞춘 건 ${r.conf}개`); if(PHONE) parts.push('표·요약·직접 사업 숫자는 PC 것으로 새로 받았습니다.');
+    const parts=[`가져왔습니다 (${E(r.from||'')} · ${fmtT(r.made)} 에 만든 파일).`,tellN(r.n)]; if(r.photos) parts.push(`사진 ${r.photos}장 붙임`); if(r.skipped) parts.push(`(붙을 자리가 없어 건너뛴 사진 ${r.skipped}장)`); if(r.conf) parts.push(`양쪽이 달라 나중 것으로 맞춘 건 ${r.conf}개`); if(PHONE) parts.push('표·요약·직접 사업 숫자는 PC 것으로 새로 받았습니다.'); if(PHONE&&MAIL_NEW){ MAIL_NEW=false; parts.push('PC 의 자동 우편함 설정을 받았습니다 — 이제부터는 앱을 열어 두면 3분마다 저절로 주고받습니다.'); setTimeout(()=>mailCycle('manual'),1500); }
     msg('#sy-in-msg',parts.join(' '));
   }catch(e){ BUSY=''; drawPage(); msg('#sy-in-msg','가져오지 못했습니다: '+(e&&e.message||e),true); }
 }
 const _draw=DIRECT.draw; DIRECT.draw=function(id){ if(id==='psync'){ drawPage(); return; } return _draw.apply(this,arguments); };
 
-window.SYNC={version:SV,PHONE_BASE,stamp,buildPcToPhone,buildPhoneToPc,importFromPC,importFromPhone,packFile,unpackFile,drawPage,doExport,doImport,askPw,state:()=>SY,changedSince,pendingPhotos,lastExchange,hash,TYPES,fixUid,mergeType};
+window.SYNC={version:SV,PHONE_BASE,stamp,buildPcToPhone,buildPhoneToPc,importFromPC,importFromPhone,packFile,unpackFile,drawPage,doExport,doImport,askPw,state:()=>SY,changedSince,pendingPhotos,lastExchange,hash,TYPES,fixUid,mergeType,
+  MAIL:{cycle:mailCycle,test:mailTest,settings:mailSettings,on:mailOn,set:(c)=>{ SY.mail=normSY({mail:Object.assign({},SY.mail||{},c)}).mail; return SY.mail; },busy:()=>MAIL_BUSY,userBusy,pre:preSig,_parts:()=>PHONE?{tw:twPayload(),tomb:SY.tomb,ph:pendingPhotos().map(f=>f.id)}:{tw:twPayload(),tomb:SY.tomb,ack:SY.ack,ro:roPayload()}}};
 })();
