@@ -1,5 +1,5 @@
 /* =====================================================================
- *  이사돔 핸드폰 — 서비스 워커 sw.js  v1.1 (2026-09-28)
+ *  이사돔 핸드폰 — 서비스 워커 sw.js  v1.2 (2026-09-28)
  *  두 가지 일을 합니다.
  *   1) "핸드폰 안의 작은 서버": 화면 파일(app.js 등)은 PC 와 똑같이 /api/... 를 부르는데, 핸드폰에는 서버가 없으니
  *      여기서 그 요청을 받아 핸드폰 저장 공간(IndexedDB)에 읽고 씁니다. 자료는 이 핸드폰 밖으로 나가지 않습니다.
@@ -7,7 +7,7 @@
  *  판(VER)을 올리면 다음에 열 때 새 파일을 받습니다. 자료(IndexedDB)는 판과 상관없이 그대로입니다.
  *  v1.1: 비밀번호 — 처음에 이름과 함께 정하고, 열 때마다 확인합니다 (원문은 안 남기고 잠근 값만 저장).
  * ===================================================================== */
-const VER = 'isadom-phone-2026-09-28e';
+const VER = 'isadom-phone-2026-09-28f';
 const SHELL = ['./', './index.html', './phone-boot.js', './phone.js', './phone.css', './app.js', './direct.js', './consult.js', './todo.js', './dash.js',
   './tagup.js', './quali.js', './sync.js', './memowin.js', './base.css', './isadom.css', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   './fonts/Pretendard-Regular.woff2', './fonts/Pretendard-Bold.woff2', './fonts/yeoju-ceramic.woff'];
@@ -141,10 +141,11 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (req.method !== 'GET') return;
-  /* 화면 파일: 인터넷이 되면 새 것을 받아 캐시에 넣고, 안 되면 캐시에서 */
+  /* 화면 파일: 인터넷이 되면 새 것을 받아 캐시에 넣고, 안 되면 캐시에서.
+     (cache:'no-cache' — 브라우저가 10분 동안 옛 파일을 그냥 내주지 않고 서버에 바뀌었는지 물어보게 함 → 7번 뒤 새 화면이 빨리 뜸) */
   e.respondWith((async () => {
     try {
-      const net = await fetch(req);
+      const net = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
       if (net && net.ok) { const c = await caches.open(VER); c.put(req, net.clone()).catch(() => { }); }
       return net;
     } catch (err) {

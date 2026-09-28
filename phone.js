@@ -10,7 +10,7 @@
 (function(){
 'use strict';
 if(!window.ISADOM_PHONE) return;
-const PV='v0.4 (2026-09-28)';
+const PV='v0.4a (2026-09-28)';
 const RELOCK_MIN=10;                                  /* 다른 앱에 이만큼 넘게 갔다 오면 다시 비밀번호 */
 const q=(s,r)=>(r||document).querySelector(s), qa=(s,r)=>[...(r||document).querySelectorAll(s)];
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -88,9 +88,10 @@ lock.innerHTML=`<form class="loginBox" id="plockForm" autocomplete="off" novalid
   <button type="button" class="lgBack" id="plock-forgot">비밀번호를 잊으셨나요?</button>
 </form>`;
 document.body.appendChild(lock);
-function showLock(mode){   /* 'unlock' 비밀번호 확인 · 'set' 비밀번호가 아직 없는 자료(옛 판)면 정하기 */
-  LOCKED=true; lock.dataset.mode=mode; lock.hidden=false;
-  q('#plock-sub').textContent=mode==='set'?'이 핸드폰의 이사돔에 비밀번호를 정해 주세요 (4글자 이상)':(myName()?`${myName()} 님 — 비밀번호를 넣어 주세요`:'비밀번호를 넣어 주세요');
+let LOCK_NAME='';
+function showLock(mode,name){   /* 'unlock' 비밀번호 확인 · 'set' 비밀번호가 아직 없는 자료(옛 판)면 정하기 */
+  LOCKED=true; lock.dataset.mode=mode; lock.hidden=false; const nm=name||LOCK_NAME||myName(); if(nm) LOCK_NAME=nm;
+  q('#plock-sub').textContent=mode==='set'?'이 핸드폰의 이사돔에 비밀번호를 정해 주세요 (4글자 이상)':(nm?`${nm} 님 — 비밀번호를 넣어 주세요`:'비밀번호를 넣어 주세요');
   q('#plock-l2').hidden=mode!=='set'; q('#plock-forgot').hidden=mode==='set'; q('#plock-go').textContent=mode==='set'?'정하기':'열기';
   q('#plock-pw').value=''; q('#plock-pw2').value=''; q('#plock-msg').textContent='';
   setTimeout(()=>{ try{ q('#plock-pw').focus(); }catch(e){} },50);
@@ -106,7 +107,7 @@ q('#plockForm').addEventListener('submit',async e=>{
     HAS_PW=true; hideLock(); return;
   }
   if(!pw){ msg.textContent='비밀번호를 넣어 주세요.'; return; }
-  go.disabled=true; const r=await post('/api/auth/login',{email:myName(),password:pw}).catch(()=>({})); go.disabled=false;
+  go.disabled=true; const r=await post('/api/auth/login',{email:myName()||LOCK_NAME,password:pw}).catch(()=>({})); go.disabled=false;
   if(!r.ok){ msg.textContent=r.error||'비밀번호가 다릅니다.'; q('#plock-pw').value=''; q('#plock-pw').focus(); return; }
   hideLock();
 });
@@ -120,7 +121,7 @@ lock.hidden=false; LOCKED=true; q('#plock-sub').textContent=''; q('#plock-l1').h
 fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).catch(()=>null).then(info=>{
   q('#plock-l1').hidden=false; q('#plock-go').hidden=false;
   if(!info||!info.ok||!info.name){ hideLock(); return; }          /* 처음: 이름·비밀번호 정하는 화면이 뜹니다 */
-  HAS_PW=!!info.hasPw; showLock(HAS_PW?'unlock':'set');
+  HAS_PW=!!info.hasPw; showLock(HAS_PW?'unlock':'set',info.name);   /* 이름은 핸드폰 서버가 바로 알려 줌 (app.js 가 ME 를 채우기 전일 수 있어서) */
 });
 /* 비밀번호가 있는지 다시 확인 (처음 정한 직후 · 바꾼 뒤) */
 function refreshPw(){ return fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).then(i=>{ if(i&&i.ok) HAS_PW=!!i.hasPw; return HAS_PW; }).catch(()=>HAS_PW); }
