@@ -156,7 +156,7 @@ globalThis.ISDCRYPT={sha256,hmac,pbkdf2,lock,unlock,zipStore,zipRead,crc32,toHex
 (function(){
 'use strict';
 if(!window.DIRECT||!window.TODO||!window.CONSULT){ console.warn('sync.js: direct.js·todo.js·consult.js 뒤에 읽혀야 합니다'); return; }
-const SV='v1 (2026-09-28)';
+const SV='v1.0.1 (2026-09-28)';
 const PHONE=!!window.ISADOM_PHONE;
 const PHONE_BASE=2000000000;                 /* 핸드폰에서 새로 만드는 번호는 20억부터 — PC 번호(작은 수)와 겹치지 않게 */
 const C=globalThis.ISDCRYPT;
@@ -387,7 +387,7 @@ function drawPage(){
         <div class="row"><button type="button" class="btn primary" id="sy-in" ${BUSY?'disabled':''}>${BUSY==='in'?'가져오는 중…':'핸드폰에서 온 파일 고르기'}</button><span class="hint">마지막 가져옴 ${E(fmtT(SY.last.recv))} · 받은 사진 ${SY.ack.length}장</span></div><div class="msg" id="sy-in-msg"></div></div>
       <div class="card"><h2>지난 기록</h2>${logHTML()}</div>`;
   }
-  let fi=q('#sy-file'); if(!fi){ fi=document.createElement('input'); fi.type='file'; fi.id='sy-file'; fi.accept='.zip,.isd,application/zip,application/octet-stream'; fi.hidden=true; document.body.appendChild(fi); }
+  let fi=q('#sy-file'); if(!fi){ fi=document.createElement('input'); fi.type='file'; fi.id='sy-file'; fi.accept=PHONE?'*/*':'.zip,.isd,application/zip,application/octet-stream'; fi.hidden=true; document.body.appendChild(fi); }   /* 핸드폰은 모든 파일 — 파일 고르는 앱이 zip 을 걸러 버리지 않게 */
   const bo=q('#sy-out'); if(bo) bo.onclick=()=>doExport();
   const bi=q('#sy-in'); if(bi) bi.onclick=()=>{ fi.value=''; fi.onchange=()=>{ const f=fi.files[0]; fi.value=''; if(f) doImport(f); }; fi.click(); };
 }
