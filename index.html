@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>이사돔 · 핸드폰</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#98CCE6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="isadom.css">
+<link rel="stylesheet" href="phone.css">
+<script src="phone-boot.js"></script>
+</head>
+<body class="publicOnly">
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand" id="brand"><small>여주시농업기술센터</small>이사돔</div>
+    <div class="who">
+      <span class="saveStat" id="saveStat"></span>
+      <button class="btn sm primary" id="saveAll" title="지금까지 입력한 것을 파일 하나로 내려받습니다">저장</button>
+      <button class="btn sm" id="loadAll" title="저장해 둔 파일을 불러옵니다">불러오기</button>
+      <span class="sep"></span>
+      <span class="name" id="meName">김유진</span>
+      <button class="btn sm" id="myPw">비밀번호</button>
+      <button class="btn sm" id="logout">나가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 로그인 (지원자격 찾기 맨 아래 점을 누르면 뜹니다) ══════════════ -->
+<div id="loginWrap" class="loginWrap" hidden>
+  <form class="loginBox" id="loginForm" autocomplete="off" novalidate>
+    <h1>이사돔<small>e지도사업도움 · 담당자만</small></h1>
+    <label class="fld">아이디 (이메일)
+      <input id="lgEmail" type="text" autocomplete="off" placeholder="시안에서는 아무거나"></label>
+    <label class="fld">비밀번호
+      <input id="lgPw" type="password" autocomplete="off" placeholder="시안에서는 아무거나"></label>
+    <div id="lgMsg" class="msg"></div>
+    <button class="btn primary" id="lgGo" type="submit">들어가기</button>
+    <div class="loginHint" id="lgHint">지금은 서버가 없는 시안이라 아이디·비밀번호를 비워 두고 눌러도 들어갑니다.</div>
+    <button type="button" class="lgBack" id="lgBack">← 지원자격 찾기로 돌아가기</button>
+    <div class="fontCredit">제목 글꼴 <b>여주 도자체</b><br><a href="https://www.yeoju.go.kr/" target="_blank" rel="noopener">여주시</a> 제공 · <a href="https://www.kogl.or.kr/info/licenseType1.do" target="_blank" rel="noopener">공공누리 제1유형</a></div>
+  </form>
+</div>
+
+<!-- 비밀번호 바꾸기 (서버에서만) -->
+<div id="pwWrap" class="loginWrap" hidden>
+  <form class="loginBox" id="pwForm" autocomplete="off">
+    <h1>비밀번호 바꾸기<small id="pwForced" hidden>임시 비밀번호를 쓰고 계십니다. 먼저 바꿔주세요.</small></h1>
+    <label class="fld">지금 비밀번호<input id="pwNow" type="password" autocomplete="current-password"></label>
+    <label class="fld">새 비밀번호 (8글자 이상)<input id="pwNew" type="password" autocomplete="new-password"></label>
+    <label class="fld">새 비밀번호 한 번 더<input id="pwNew2" type="password" autocomplete="new-password"></label>
+    <div id="pwMsg" class="msg"></div>
+    <button class="btn primary" id="pwGo" type="submit">바꾸기</button>
+    <button type="button" class="lgBack" id="pwClose">← 닫기</button>
+    <button type="button" class="lgBack" id="pwOut" hidden>나가기</button>
+  </form>
+</div>
+
+<div class="shell">
+
+<!-- ══════════════ 왼쪽 차림표 ══════════════ -->
+<nav class="side" id="sideNav">
+  <div class="sideBlock solo" data-group="home">
+    <button class="group" data-group="home" data-page="dash">대시보드</button>
+  </div>
+  <div class="sideBlock" data-group="biz">
+    <button class="group" data-group="biz">지도사업</button>
+    <div class="tabs">
+      <button class="tab" data-page="grid">서류 진행현황</button>
+      <button class="tab" data-page="new">사업 등록</button>
+      <button class="tab" data-page="files">스캔 찾기</button>
+    </div>
+  </div>
+  <div class="sideBlock solo" data-group="vat">
+    <button class="group" data-group="vat" data-page="vat">부가세 환급</button>
+  </div>
+  <div class="sideBlock solo" data-group="todo">
+    <button class="group" data-group="todo" data-page="todo">할일</button>
+  </div>
+  <div class="sideBlock" data-group="direct">
+    <button class="group" data-group="direct">직접 사업</button>
+    <div class="tabs">
+      <button class="tab" data-page="dsum">사업 요약</button>
+      <button class="tab" data-page="dledger">가계부</button>
+      <button class="tab" data-page="dstat">현황</button>
+      <button class="tab" data-page="dpay">월급 계산기</button>
+    </div>
+  </div>
+  <div class="sideBlock solo" data-group="consult">
+    <button class="group" data-group="consult" data-page="consult">상담</button>
+  </div>
+  <div class="sideBlock solo" data-group="memo">
+    <button class="group" data-group="memo" data-page="memo">메모</button>
+  </div>
+  <div class="sideBlock solo" data-group="phone">
+    <button class="group" data-group="phone" data-page="psync">핸드폰</button>
+  </div>
+  <div class="sideBlock solo" data-group="admin">
+    <button class="group" data-group="admin" data-page="admin">관리</button>
+  </div>
+  <!-- 로그인 전에는 이 묶음만 보입니다 -->
+  <div class="sideBlock solo" data-group="quali">
+    <button class="group" data-group="quali" data-page="quali">지원자격 찾기</button>
+  </div>
+  <div class="fontCredit">제목 글꼴 <b>여주 도자체</b><br><a href="https://www.yeoju.go.kr/" target="_blank" rel="noopener">여주시</a> 제공 · <a href="https://www.kogl.or.kr/info/licenseType1.do" target="_blank" rel="noopener">공공누리 제1유형</a></div>
+</nav>
+
+<div class="wrap">
+  <div class="page" id="page-dash"></div>
+<div class="page" id="page-todo"></div>
+<div class="page" id="page-grid"></div>
+  <div class="page" id="page-new"></div>
+  <div class="page" id="page-files"></div>
+  <div class="page" id="page-detail"></div>
+  <div class="page" id="page-dsum"></div>
+  <div class="page" id="page-dnew"></div>
+  <div class="page" id="page-dledger"></div>
+<div class="page" id="page-dstat"></div>
+  <div class="page" id="page-dpay"></div>
+  <div class="page" id="page-consult"></div>
+  <div class="page" id="page-vat"></div>
+  <div class="page" id="page-memo"></div>
+  <div class="page" id="page-admin"></div>
+  <div class="page" id="page-quali"></div>
+  <div class="page" id="page-psync"></div>
+</div>
+
+</div><!-- shell -->
+
+<!-- 옆 패널 (서류 목록) -->
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" aria-hidden="true">
+  <div class="phead">
+    <div><h2 id="ptitle"></h2><p class="sub" id="psub"></p></div>
+    <button class="pclose" id="pclose" aria-label="닫기">×</button>
+  </div>
+  <div class="pbody" id="pbody"></div>
+  <div class="pfoot" id="pfoot"></div>
+</aside>
+
+<!-- 스캔 뷰어 -->
+<div class="viewer" id="viewer" hidden tabindex="-1">
+  <div class="vtop"><b id="v-title"></b><span class="vc" id="v-count"></span>
+    <span class="vc" style="margin-left:auto">← → 넘기기 · Esc 닫기</span>
+    <button class="pclose" id="v-close" aria-label="닫기">×</button></div>
+  <div class="vmain"><div class="vstage" id="v-stage"></div><div class="vside" id="v-side"></div></div>
+  <div class="vstrip" id="v-strip"></div>
+</div>
+<input type="file" id="fpick" multiple hidden>
+<input type="file" id="fload" accept=".json,application/json" hidden>
+
+<script src="app.js"></script>
+<script src="direct.js"></script>
+<script src="memowin.js"></script>
+<script src="dash.js"></script>
+<script src="todo.js"></script>
+<script src="consult.js"></script>
+<script src="tagup.js"></script>
+<script src="quali.js"></script>
+<script src="sync.js"></script>
+<script src="phone.js"></script>
+</body>
+</html>

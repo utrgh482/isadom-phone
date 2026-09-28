@@ -1,0 +1,15 @@
+{
+  "name": "이사돔",
+  "short_name": "이사돔",
+  "description": "여주시농업기술센터 이사돔 — 핸드폰용",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#98CCE6",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
