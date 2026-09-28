@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#98CCE6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>이사돔 · 핸드폰</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--line:#e2e5ea;--text:#1b1f24;--muted:#6d7480;--sky:#98CCE6;--ink:#16435A;--accent:#2A627E;--bad:#b42318;--ok:#1f6f2b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,"Pretendard","Malgun Gothic",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 40px}
+  .top{background:#fff;border-bottom:2px solid #73BADD;padding:14px 18px 12px}
+  .top small{display:block;color:var(--muted);font-size:12px}
+  .top b{font-size:26px;letter-spacing:-.5px}
+  .wrap{padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  h2{margin:0 0 8px;font-size:17px}
+  p{margin:6px 0;color:var(--muted);font-size:14px}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:14px}
+  .kv span{color:var(--muted)}
+  .ok{color:var(--ok);font-weight:700}.no{color:var(--bad);font-weight:700}
+  button{font:inherit;font-size:15px;font-weight:700;padding:11px 16px;border-radius:10px;border:1px solid var(--sky);background:var(--sky);color:var(--ink);margin:6px 6px 0 0}
+  button.ghost{background:#fff;color:var(--accent);border-color:#cdd2da}
+  .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+  .log{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-line}
+  .pill{display:inline-block;background:rgba(152,204,230,.3);color:var(--accent);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="top"><small>여주시농업기술센터</small><b>이사돔</b> <span class="pill">핸드폰 · 준비 중</span></div>
+<div class="wrap">
+  <div class="card"><h2>이 자리에 핸드폰 화면이 들어옵니다</h2>
+    <p>대시보드 · 할일 · 메모 · 상담 · 직접 사업 · 지도사업 표 · 지원자격 찾기. 지금은 <b>연결 시험</b>만 됩니다. 이 페이지에는 자료가 한 글자도 없습니다.</p></div>
+
+  <div class="card"><h2>연결 시험</h2>
+    <div class="kv">
+      <span>열린 곳</span><b id="k-where">…</b>
+      <span>앱 판</span><b id="k-ver">—</b>
+      <span>인터넷</span><b id="k-net">…</b>
+      <span>저장 공간</span><b id="k-store">…</b>
+      <span>페이지 판</span><b>v0.1 (2026-09-28)</b>
+    </div>
+    <div style="margin-top:12px">
+      <button id="b-save">파일 내려받기 시험</button>
+      <button id="b-pick" class="ghost">사진 고르기 시험</button>
+      <input type="file" id="f-pick" accept="image/*" multiple hidden>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="log" id="log"></div>
+    <p style="margin-top:12px">브라우저로 열었으면 메뉴에서 <b>홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있습니다. (안드로이드는 apk 를 쓰면 됩니다)</p>
+  </div>
+</div>
+<script>
+(function(){
+  const $=s=>document.querySelector(s), log=m=>{ const el=$('#log'); el.textContent=(new Date()).toLocaleTimeString('ko-KR')+'  '+m+'\n'+el.textContent; };
+  const inApp=!!(window.IsadomApp&&typeof IsadomApp.version==='function');
+  $('#k-where').innerHTML=inApp?'<span class="ok">이사돔 앱 안</span>':'브라우저 (앱 아님)';
+  try{ $('#k-ver').textContent=inApp?IsadomApp.version():'—'; }catch(e){ $('#k-ver').textContent='?'; }
+  const net=()=>{ $('#k-net').innerHTML=navigator.onLine?'<span class="ok">됨</span>':'<span class="no">안 됨</span>'; }; net(); addEventListener('online',net); addEventListener('offline',net);
+  try{ const n=(+localStorage.getItem('isadom_visits')||0)+1; localStorage.setItem('isadom_visits',String(n)); $('#k-store').innerHTML=`<span class="ok">됨</span> <span style="color:#6d7480;font-weight:400">(이 핸드폰에서 ${n}번째 열림 — 숫자가 늘어나면 저장이 남는 것)</span>`; }
+  catch(e){ $('#k-store').innerHTML='<span class="no">안 됨</span>'; }
+  $('#b-save').onclick=()=>{
+    const name=`이사돔_시험_${new Date().toISOString().slice(0,10)}.txt`, text=`이사돔 핸드폰 연결 시험\n${new Date().toLocaleString('ko-KR')}\n열린 곳: ${inApp?'앱':'브라우저'}\n`;
+    if(inApp&&IsadomApp.saveFile){ const b64=btoa(unescape(encodeURIComponent(text))); const ok=IsadomApp.saveFile(name,b64,'text/plain'); log(ok?`앱이 다운로드 폴더에 저장: ${name}`:'앱 저장 실패'); return; }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); log(`브라우저 내려받기: ${name}`);
+  };
+  $('#b-pick').onclick=()=>$('#f-pick').click();
+  $('#f-pick').onchange=()=>{ const fs=[...$('#f-pick').files]; const box=$('#thumbs'); box.innerHTML='';
+    fs.forEach(f=>{ if(/^image\//.test(f.type)){ const img=document.createElement('img'); img.src=URL.createObjectURL(f); box.appendChild(img); } });
+    log(fs.length?`고른 파일 ${fs.length}개: ${fs.map(f=>`${f.name} (${Math.round(f.size/1024)}KB)`).join(', ')}`:'고른 파일 없음'); $('#f-pick').value=''; };
+})();
+</script>
+</body>
+</html>

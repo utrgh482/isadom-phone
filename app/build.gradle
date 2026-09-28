@@ -1,0 +1,50 @@
+// 이사돔 핸드폰 앱(껍데기) — 페이지를 여는 WebView 하나입니다
+plugins {
+    id 'com.android.application'
+}
+
+// 도장(서명 열쇠)은 GitHub 비밀 칸에서 옵니다 (KEYSTORE_B64 → app/isadom.jks, KEYSTORE_PASSWORD). 없으면 서명 없이 만듭니다(설치 안 됨)
+def ksFile = System.getenv('KEYSTORE_FILE')
+def ksPass = System.getenv('KEYSTORE_PASSWORD')
+def verCode = (System.getenv('APP_VERSION_CODE') ?: '1') as Integer
+
+android {
+    namespace 'kr.yeoju.isadom'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'kr.yeoju.isadom'
+        minSdk 29
+        targetSdk 34
+        versionCode verCode
+        versionName "1.0.${verCode}"
+        // 앱이 여는 주소 — 저장소 이름을 바꾸면 여기만 고칩니다
+        buildConfigField 'String', 'HOME_URL', '"https://utrgh482.github.io/isadom-phone/"'
+    }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            if (ksFile && ksPass) {
+                storeFile file(ksFile)
+                storePassword ksPass
+                keyAlias 'isadom'
+                keyPassword ksPass
+                storeType 'PKCS12'
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ksFile && ksPass) signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}

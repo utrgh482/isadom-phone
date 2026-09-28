@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">이사돔</string>
+    <string name="offline_title">인터넷이 안 됩니다</string>
+    <string name="retry">다시 시도</string>
+</resources>
