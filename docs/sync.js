@@ -1,5 +1,5 @@
 /* =====================================================================
- *  이사돔 — PC ↔ 핸드폰 주고받기  sync.js  v1.1 (2026-09-28)
+ *  이사돔 — PC ↔ 핸드폰 주고받기  sync.js  v1.2 (2026-09-29)
  *  PC 이사돔과 핸드폰 이사돔이 같이 읽는 파일입니다 (app.js 는 고치지 않고 감싸서 덧붙임).
  *   1) 잠금 부품 (ISDCRYPT): SHA-256 · HMAC · PBKDF2 · 흐름 잠금 · ZIP 담기 — 순수 자바스크립트.
  *      (사무실 PC 이사돔은 http:// 로 열려서 브라우저의 내장 잠금(WebCrypto)이 꺼져 있기 때문에 직접 만들었습니다.
@@ -7,7 +7,9 @@
  *   2) 주고받기 (SYNC): 할일·메모·상담·현황 건마다 "고친 시각"을 매겨 두고, 잠긴 파일 하나로 주고받으며
  *      나중 것이 이기는 규칙으로 합칩니다. PC → 핸드폰은 글만(개인정보 칸 뺌), 핸드폰 → PC 는 고친 것 + 새 사진.
  *   3) 자동 우편함 (v1.1): 깃허브 비공개 저장소 하나를 우편함으로 써서, 같은 잠긴 덩어리를 프로그램이 알아서 넣고 꺼냅니다
- *      (PC 이사돔이 열려 있는 동안 · 핸드폰 앱이 열려 있는 동안, 3분마다). 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.
+ *      (PC 이사돔이 열려 있는 동안 · 핸드폰 앱이 열려 있는 동안, 1분쯤마다). 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.
+ *      v1.2: 탭이 뒤에 가 있어도 보내고, 적는 중이면 20초 손을 뗀 뒤에. 받기(화면을 다시 그림)만 고치는 창·쓰다 만 글이 있을 때 미룹니다.
+ *            받은 뒤에도 보던 자리(사업 상세·직접 사업의 해와 사업·메모 거르기)를 그대로 둡니다.
  * ===================================================================== */
 
 /* ---------- 1) 잠금 부품 ---------- */
@@ -158,7 +160,7 @@ globalThis.ISDCRYPT={sha256,hmac,pbkdf2,lock,unlock,zipStore,zipRead,crc32,toHex
 (function(){
 'use strict';
 if(!window.DIRECT||!window.TODO||!window.CONSULT){ console.warn('sync.js: direct.js·todo.js·consult.js 뒤에 읽혀야 합니다'); return; }
-const SV='v1.1.2 (2026-09-29)';
+const SV='v1.2 (2026-09-29)';
 const PHONE=!!window.ISADOM_PHONE;
 const PHONE_BASE=2000000000;                 /* 핸드폰에서 새로 만드는 번호는 20억부터 — PC 번호(작은 수)와 겹치지 않게 */
 const CR=globalThis.ISDCRYPT;   /* 암호 부품 (app.js 의 공통 서류 C 와 이름이 겹치지 않게 CR) */
@@ -374,9 +376,12 @@ function askPw(o){ o=o||{}; return new Promise(res=>{
 }); }
 
 /* ---------- 3) 자동 우편함 — 깃허브 비공개 저장소 (Git 데이터 API: blob → tree → 부모 없는 commit → ref 를 강제로 옮김 = 저장소에 늘 최신 것 하나만) ---------- */
-const MAIL_MIN=3, PC_FILE='pc-outbox.isd', PH_FILE='phone-outbox.isd';
-let MAIL_BUSY=false, MAIL_NEW=false, LAST_INPUT=0, MAIL_LASTRUN=0;
-document.addEventListener('input',()=>{ LAST_INPUT=Date.now(); },true); document.addEventListener('keydown',()=>{ LAST_INPUT=Date.now(); },true);
+const MAIL_MIN=1, PC_FILE='pc-outbox.isd', PH_FILE='phone-outbox.isd';
+let MAIL_BUSY=false, MAIL_NEW=false, MAIL_WAIT=false, LAST_INPUT=0, MAIL_LASTRUN=0, MAIL_LASTCHECK='';
+/* 글쇠를 누른 시각 — 비밀번호·잠금·우편함 설정 창에서 친 것은 세지 않습니다 (앱을 열자마자 비밀번호를 넣어도 바로 주고받게) */
+const NOT_TYPING='#syPw,#syMail,#plock,#loginWrap,#pwWrap';
+const touched=e=>{ const t=e&&e.target; if(t&&t.closest&&t.closest(NOT_TYPING)) return; LAST_INPUT=Date.now(); };
+document.addEventListener('input',touched,true); document.addEventListener('keydown',touched,true);
 const mailOn=()=>{ const m=SY.mail; return !!(m&&m.on&&m.owner&&m.repo&&m.token&&m.pw); };
 const ghApi=(m)=>String((m&&m.api)||'https://api.github.com').replace(/\/$/,'');
 function ghHeaders(m,raw,json){ const h={'Accept':raw?'application/vnd.github.raw+json':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}; if(m&&m.token) h['Authorization']='Bearer '+m.token; if(json) h['Content-Type']='application/json'; return h; }
@@ -407,29 +412,69 @@ async function mailTest(cfg){ const out=[]; const api=ghApi(cfg);
     const t=await ghTree(cfg); out.push(t.commit?`③ 우편함 안: ${Object.keys(t.files).filter(f=>/outbox/.test(f)).join(', ')||'(아직 비어 있음)'}`:'③ 우편함이 비어 있습니다 (첫 보내기 때 채워짐)'); }
   catch(e){ out.push('② 저장소 확인 실패: '+(e&&e.message||e)); }
   return out; }
-function userBusy(){ const a=document.activeElement; const typing=!!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!a.closest('#syPw,#syMail,#plock')); const panel=q('#panel')&&q('#panel').classList.contains('open'); const viewer=q('#viewer')&&!q('#viewer').hidden; return typing||panel||viewer||(Date.now()-LAST_INPUT<20000)||!!BUSY; }
+/* 손이 바쁜가 — 20초 안에 글쇠를 눌렀거나 파일을 만들거나 가져오는 중이면 보내는 것까지 다음 차례로 미룹니다.
+ *  (탭이 뒤에 가 있는 것은 바쁜 것이 아닙니다 — 오히려 손이 빈 때라 그때 보냅니다. v1.1 은 뒤에 가 있으면 아예 쉬어서, 다른 프로그램을 쓰는 동안 PC 에서 적은 것이 핸드폰에 안 갔습니다) */
+const typingNow=()=>(Date.now()-LAST_INPUT<20000)||!!BUSY;
+/* 화면을 건드려도 되는가 — 받아들이기(applySnapshot)는 오른쪽 판·크게 보기를 닫고 화면을 다시 그리므로, 고치는 중이거나 쓰다 만 글이 있으면 "받기"만 미룹니다(보내기는 합니다) */
+function pullSafe(){
+  try{
+    if(typingNow()) return false;
+    const panel=q('#panel'); if(panel&&panel.classList.contains('open')) return false;            /* 할일·현황 건을 고치는 오른쪽 판 */
+    const viewer=q('#viewer'); if(viewer&&!viewer.hidden) return false;                           /* 크게 보기 */
+    const page=(typeof PAGE!=='undefined')?PAGE:'';
+    if(page==='new'||page==='dnew') return false;                                                /* 사업 등록 서식을 채우는 중 — 다시 그리면 적던 것이 사라짐 */
+    if(typeof MEDIT!=='undefined'&&MEDIT!=null) return false;                                     /* 메모를 고치는 중 */
+    if(window.DIRECT&&DIRECT.D&&DIRECT.D.editId!=null) return false;                              /* 가계부 지출을 고치는 중 */
+    const has=el=>!!(el&&String(el.value||'').trim());
+    if(['#mf-title','#mf-body','#td-quick'].some(s=>has(q('.page.on '+s)))) return false;        /* 쓰다 만 메모·할 일 (아직 저장 전) */
+    const a=document.activeElement;
+    if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&!a.closest(NOT_TYPING)&&!/^(date|checkbox|radio|file|range|number)$/.test(a.type||'')&&has(a)) return false;   /* 글자 칸에 커서가 있고 뭔가 적혀 있음 (빈 칸에 커서만 있는 것은 괜찮음 — 메모를 넣고 나면 커서가 제목 칸에 남습니다) */
+  }catch(e){}
+  return true;
+}
+const userBusy=()=>typingNow()||!pullSafe();   /* 시험(t22)용 */
+/* 받아들이기가 지워 버리는 "보던 자리"를 기억했다가 되돌립니다 — 사업 상세(어느 사업·어느 탭), 직접 사업의 해·사업 고르기, 메모 거르기, 스크롤 */
+function keepView(){
+  const k={page:(typeof PAGE!=='undefined')?PAGE:'',y:window.scrollY,detail:(typeof detailOf!=='undefined')?detailOf:null,sub:(typeof subtab!=='undefined')?subtab:null,
+    mf:(typeof MF!=='undefined'&&MF)?Object.assign({},MF):null,d:(window.DIRECT&&DIRECT.D)?{year:DIRECT.D.year,proj:DIRECT.D.proj}:null};
+  return ()=>{ try{
+    if(k.mf&&typeof MF!=='undefined') Object.assign(MF,k.mf);
+    if(k.d&&window.DIRECT&&DIRECT.D){ DIRECT.D.year=k.d.year; DIRECT.D.proj=k.d.proj; }
+    if(!k.page||k.page==='psync') return;
+    if(k.page==='detail'){ if(k.detail!=null&&(PROJECTS||[]).some(p=>p.alias===k.detail)){ detailOf=k.detail; if(k.sub!=null) subtab=k.sub; showPage('detail'); } else showPage('grid'); }
+    else showPage(k.page);
+    window.scrollTo(0,k.y);
+  }catch(e){ console.warn('sync keepView',e); } };
+}
 function preSig(){ if(PHONE) return hash(JSON.stringify({tw:twPayload(),tomb:SY.tomb,ph:pendingPhotos().map(f=>f.id)})); return hash(JSON.stringify({tw:twPayload(),tomb:SY.tomb,ack:SY.ack,ro:roPayload(),mail:!!(SY.mail&&SY.mail.share!==false)})); }
 function mailLog(e){ const m=SY.mail; if(!m) return; m.log=[e].concat(m.log||[]).slice(0,20); }
-async function mailCycle(mode){   /* 'auto'(3분마다·조용히) 또는 'manual'(단추) — 받기 → 보내기 */
-  if(!mailOn()||MAIL_BUSY) return null; if(typeof LOGGED!=='undefined'&&!LOGGED) return null; if(mode==='auto'&&(document.hidden||userBusy())) return null;
+async function mailCycle(mode){   /* 'auto'(1분쯤마다·조용히) 또는 'manual'(단추) — 받기 → 보내기 */
+  if(!mailOn()||MAIL_BUSY) return null; if(typeof LOGGED!=='undefined'&&!LOGGED) return null;
+  const auto=mode==='auto'; if(auto&&typingNow()) return null;   /* 적는 중이면 통째로 다음 차례에. 탭이 뒤에 가 있어도 합니다 */
+  const canPull=!auto||pullSafe();                               /* 고치는 중이면 받기만 미루고 보내기는 합니다 */
   /* ※ 가져오기(applySnapshot → DIRECT.load)를 거치면 SY 가 새 객체로 바뀌므로, SY.mail 은 그때그때 다시 읽습니다 (M()) */
-  const M=()=>SY.mail||{};
-  MAIL_BUSY=true; MAIL_LASTRUN=Date.now(); const out={pulled:null,pushed:false,err:''}; const say=t=>{ if(mode==='manual') msg('#sy-mail-msg',t); };
+  const M=()=>SY.mail||{}; const errBefore=M().err||'';
+  MAIL_BUSY=true; MAIL_LASTRUN=Date.now(); const out={pulled:null,pushed:false,waited:false,err:''}; const say=t=>{ if(!auto) msg('#sy-mail-msg',t); };
   try{
-    say('우편함 보는 중…'); const tree=await ghTree(M());
+    say('우편함 보는 중…'); const tree=await ghTree(M()); MAIL_LASTCHECK=iso();
     const theirs=PHONE?PC_FILE:PH_FILE, mine=PHONE?PH_FILE:PC_FILE, f=tree.files[theirs];
-    if(f&&f.sha!==M().gotSha){ say('받는 중…'); stamp(); const bytes=await ghGetBlob(M(),f.sha); let payload; try{ payload=await CR.unlock(bytes,M().pw); }catch(e){ throw new Error('우편함 파일을 못 열었습니다 — 양쪽 자동 우편함 비밀번호가 같은지 확인해 주세요'); }
-      const r=PHONE?await importFromPC(payload,{mailbox:true}):await importFromPhone(payload,null,{mailbox:true}); M().gotSha=f.sha; M().lastPull=iso(); out.pulled=r; mailLog({t:iso(),dir:'in',n:r.n,conf:r.conf,photos:r.photos||0});
-      if(mode==='auto'&&typeof PAGE!=='undefined'&&PAGE&&PAGE!=='psync'){ try{ const y=window.scrollY; showPage(PAGE==='detail'?'grid':PAGE); window.scrollTo(0,y); }catch(e){} } }
-    const pre=preSig(), mineF=tree.files[mine], need=(pre!==M().pushedSig)||(!!M().mySha&&(!mineF||mineF.sha!==M().mySha));
+    if(f&&f.sha!==M().gotSha){
+      if(canPull){ say('받는 중…'); stamp(); const bytes=await ghGetBlob(M(),f.sha); let payload; try{ payload=await CR.unlock(bytes,M().pw); }catch(e){ throw new Error('우편함 파일을 못 열었습니다 — 양쪽 자동 우편함 비밀번호가 같은지 확인해 주세요'); }
+        const back=keepView();
+        const r=PHONE?await importFromPC(payload,{mailbox:true}):await importFromPhone(payload,null,{mailbox:true}); M().gotSha=f.sha; M().lastPull=iso(); out.pulled=r; MAIL_WAIT=false; mailLog({t:iso(),dir:'in',n:r.n,conf:r.conf,photos:r.photos||0});
+        back(); }
+      else { MAIL_WAIT=true; out.waited=true; }   /* 받을 것이 있지만 지금은 화면을 건드리면 안 됨 — 손이 비면 바로 다음 차례에 */
+    } else MAIL_WAIT=false;
+    stamp(); const pre=preSig(), mineF=tree.files[mine], need=(pre!==M().pushedSig)||(!!M().mySha&&(!mineF||mineF.sha!==M().mySha));
     if(need){ say('보내는 중…'); const payload=PHONE?await buildPhoneToPc():await buildPcToPhone(); const u8=await CR.lock(payload,M().pw); const sha=await ghPutFile(M(),mine,u8); M().mySha=sha; M().pushedSig=pre; M().lastPush=iso(); SY.last.sent=M().lastPush; out.pushed=true; mailLog({t:iso(),dir:'out',size:u8.length,photos:PHONE?(payload.photos||[]).length:0}); }
     M().err=''; M().errAt='';
   }catch(e){ out.err=e&&e.message||String(e); M().err=out.err; M().errAt=iso(); }
-  MAIL_BUSY=false; if(typeof saveToServer==='function') saveToServer(true);
-  if(typeof PAGE!=='undefined'&&PAGE==='psync'){ drawPage(); if(mode==='manual') msg('#sy-mail-msg',out.err?'안 됐습니다: '+out.err:(out.pulled||out.pushed)?[out.pulled?`받음: ${tellN(out.pulled.n)}${out.pulled.photos?` · 사진 ${out.pulled.photos}장`:''}${out.pulled.conf?` · 양쪽이 달라 나중 것으로 맞춘 건 ${out.pulled.conf}개`:''}`:'',out.pushed?'보냄 ○':''].filter(Boolean).join(' / '):'새로 주고받을 것이 없습니다.',!!out.err); }
+  MAIL_BUSY=false; if((out.pulled||out.pushed||(M().err||'')!==errBefore)&&typeof saveToServer==='function') saveToServer(true);   /* 들여다보기만 한 차례는 저장할 것이 없음 */
+  if(typeof PAGE!=='undefined'&&PAGE==='psync'){ drawPage(); if(!auto) msg('#sy-mail-msg',out.err?'안 됐습니다: '+out.err:(out.pulled||out.pushed)?[out.pulled?`받음: ${tellN(out.pulled.n)}${out.pulled.photos?` · 사진 ${out.pulled.photos}장`:''}${out.pulled.conf?` · 양쪽이 달라 나중 것으로 맞춘 건 ${out.pulled.conf}개`:''}`:'',out.pushed?'보냄 ○':''].filter(Boolean).join(' / '):'새로 주고받을 것이 없습니다.',!!out.err); }
   return out; }
-setInterval(()=>{ if(!mailOn()) return; if(Date.now()-MAIL_LASTRUN<MAIL_MIN*60000) return; mailCycle('auto'); },30000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&mailOn()&&Date.now()-MAIL_LASTRUN>60000) setTimeout(()=>mailCycle('auto'),2500); });
+/* 30초마다 들여다보되 실제로는 1분쯤에 한 번 — 받을 것이 있는데 미뤄 둔 상태면 손이 비는 대로 바로 */
+setInterval(()=>{ if(!mailOn()) return; const since=Date.now()-MAIL_LASTRUN; if(since>=MAIL_MIN*60000||(MAIL_WAIT&&since>=20000&&pullSafe())) mailCycle('auto'); },30000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&mailOn()&&Date.now()-MAIL_LASTRUN>30000) setTimeout(()=>mailCycle('auto'),2500); });   /* 탭·앱으로 돌아오면 곧 한 번 */
 setTimeout(()=>{ if(mailOn()) mailCycle('auto'); },15000);   /* 열고 15초 뒤 한 번 */
 /* 설정 창 */
 function mailSettings(){ return new Promise(res=>{
@@ -438,7 +483,7 @@ function mailSettings(){ return new Promise(res=>{
       <label class="fld">저장소 (아이디/이름)<input id="sm-repo" placeholder="예: utrgh482/isadom-mailbox"></label>
       <label class="fld">토큰 (github_pat_… 또는 ghp_…)<input id="sm-token" type="password" autocomplete="off"></label>
       <label class="fld">자동 우편함 비밀번호 (4글자 이상 — 양쪽이 같아야 함)<input id="sm-pw" type="password" autocomplete="off"></label>
-      <label class="fld" style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="sm-on" style="width:auto;margin:0"> 켜기 (열어 두면 3분마다 저절로 주고받기)</label>
+      <label class="fld" style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="sm-on" style="width:auto;margin:0"> 켜기 (열어 두면 1분쯤마다 저절로 주고받기)</label>
       <div class="msg" id="sm-msg"></div>
       <div class="row"><button class="btn primary" type="submit" id="sm-save">저장</button><button type="button" class="btn" id="sm-test">연결 시험</button><button type="button" class="btn" id="sm-x">취소</button></div>
       <p class="hint" style="margin-top:12px">토큰 만들기: github.com → 오른쪽 위 사진 → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → Repository access 에서 우편함 저장소만 고르고 → Permissions › Repository permissions › <b>Contents: Read and write</b> → Generate. 만료일이 있으니 그때 새 토큰으로 바꿔 넣습니다.</p></form>`;
@@ -455,8 +500,8 @@ function mailSettings(){ return new Promise(res=>{
 function mailCardHTML(){ const m=SY.mail; const on=mailOn();
   const st=!m?'설정 안 됨':(on?`켜짐 · ${E(m.owner)}/${E(m.repo)}${m.fromPc?' (PC 에서 받은 설정)':''}`:`꺼짐 · ${E(m.owner||'')}/${E(m.repo||'')}${!m.pw?' · 비밀번호 없음':''}`);
   return `<div class="card" id="sy-mailcard"><h2>자동 우편함 <span class="pill grey">깃허브</span></h2>
-    <p class="desc">${PHONE?'앱을 열어 두면 3분마다 PC 이사돔과 저절로 주고받습니다(PC 이사돔도 열려 있을 때). 밴드로 파일을 옮길 필요가 없습니다.':'이 화면이 열려 있는 동안 3분마다 핸드폰과 저절로 주고받습니다(핸드폰 앱도 열려 있을 때). 우편함은 유진 님 깃허브의 비공개 저장소이고, 놓이는 것은 아래 파일 방식과 똑같은 잠긴 덩어리입니다. 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.'}</p>
-    <div class="kv2"><span>상태</span><b>${st}</b><span>마지막 받음</span><b>${E(fmtT(m&&m.lastPull))}</b><span>마지막 보냄</span><b>${E(fmtT(m&&m.lastPush))}</b>${m&&m.err?`<span>오류</span><b class="bad">${E(m.err)} <small>(${E(fmtT(m.errAt))})</small></b>`:''}</div>
+    <p class="desc">${PHONE?'앱을 열어 두면 1분쯤마다 PC 이사돔과 저절로 주고받고, 앱을 다시 열 때도 곧 한 번 봅니다(PC 이사돔 탭도 열려 있을 때 옵니다). 밴드로 파일을 옮길 필요가 없습니다.':'이사돔이 브라우저에 열려 있으면(어느 화면이든, 다른 프로그램을 쓰느라 탭이 뒤에 가 있어도) 1분쯤마다 핸드폰과 저절로 주고받습니다. 글을 적는 중이면 손을 뗀 지 20초 뒤에 보내고, 무언가 고치는 창이 열려 있으면 받기만 잠시 미룹니다. 핸드폰은 앱이 열려 있을 때 받습니다. 우편함은 유진 님 깃허브의 비공개 저장소이고, 놓이는 것은 아래 파일 방식과 똑같은 잠긴 덩어리입니다. 밴드 파일 방식은 그대로 남아 있어 언제든 손으로도 됩니다.'}</p>
+    <div class="kv2"><span>상태</span><b>${st}</b><span>마지막 확인</span><b>${E(fmtT(MAIL_LASTCHECK))}${on&&!MAIL_LASTCHECK?' <small class="hint">(연 지 15초 뒤부터)</small>':''}</b><span>마지막 받음</span><b>${E(fmtT(m&&m.lastPull))}</b><span>마지막 보냄</span><b>${E(fmtT(m&&m.lastPush))}</b>${MAIL_WAIT?`<span>기다림</span><b>${PHONE?'PC':'핸드폰'}에서 온 것이 있는데 고치는 중이라 미뤄 둠 — 손을 떼면 받습니다</b>`:''}${m&&m.err?`<span>오류</span><b class="bad">${E(m.err)} <small>(${E(fmtT(m.errAt))})</small></b>`:''}</div>
     <div class="row" style="margin-top:10px"><button type="button" class="btn primary" id="sy-mail-now" ${on&&!MAIL_BUSY?'':'disabled'}>${MAIL_BUSY?'주고받는 중…':'지금 주고받기'}</button><button type="button" class="btn" id="sy-mail-set">${m?'설정 고치기':'설정'}</button><button type="button" class="btn" id="sy-mail-test">연결 시험</button>${m?`<button type="button" class="btn" id="sy-mail-toggle">${m.on?'끄기':'켜기'}</button>`:''}</div>
     <div class="msg" id="sy-mail-msg"></div>
     ${m&&m.log&&m.log.length?`<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">자동 우편함 기록 ${m.log.length}건</summary><table class="sylog">${m.log.map(e=>`<tr><td>${E(fmtT(e.t))}</td><td>${e.dir==='in'?'받음':'보냄'}</td><td>${e.dir==='in'?E(tellN(e.n||{}))+(e.photos?` · 사진 ${e.photos}장`:'')+(e.conf?` · <b>나중 것으로 맞춘 건 ${e.conf}개</b>`:''):`${Math.round((e.size||0)/1024)}KB${e.photos?` · 사진 ${e.photos}장`:''}`}</td></tr>`).join('')}</table></details>`:''}
@@ -531,12 +576,12 @@ async function doImport(file){
     msg('#sy-in-msg','합치는 중…');
     const r=PHONE?await importFromPC(payload,{pw}):await importFromPhone(payload,(i,n)=>msg('#sy-in-msg',`사진 받는 중 ${i}/${n}…`));
     BUSY=''; drawPage();
-    const parts=[`가져왔습니다 (${E(r.from||'')} · ${fmtT(r.made)} 에 만든 파일).`,tellN(r.n)]; if(r.photos) parts.push(`사진 ${r.photos}장 붙임`); if(r.skipped) parts.push(`(붙을 자리가 없어 건너뛴 사진 ${r.skipped}장)`); if(r.conf) parts.push(`양쪽이 달라 나중 것으로 맞춘 건 ${r.conf}개`); if(PHONE) parts.push('표·요약·직접 사업 숫자는 PC 것으로 새로 받았습니다.'); if(PHONE&&MAIL_NEW){ MAIL_NEW=false; parts.push('PC 의 자동 우편함 설정을 받았습니다 — 이제부터는 앱을 열어 두면 3분마다 저절로 주고받습니다.'); setTimeout(()=>mailCycle('manual'),1500); }
+    const parts=[`가져왔습니다 (${E(r.from||'')} · ${fmtT(r.made)} 에 만든 파일).`,tellN(r.n)]; if(r.photos) parts.push(`사진 ${r.photos}장 붙임`); if(r.skipped) parts.push(`(붙을 자리가 없어 건너뛴 사진 ${r.skipped}장)`); if(r.conf) parts.push(`양쪽이 달라 나중 것으로 맞춘 건 ${r.conf}개`); if(PHONE) parts.push('표·요약·직접 사업 숫자는 PC 것으로 새로 받았습니다.'); if(PHONE&&MAIL_NEW){ MAIL_NEW=false; parts.push('PC 의 자동 우편함 설정을 받았습니다 — 이제부터는 앱을 열어 두면 1분쯤마다 저절로 주고받습니다.'); setTimeout(()=>mailCycle('manual'),1500); }
     msg('#sy-in-msg',parts.join(' '));
   }catch(e){ BUSY=''; drawPage(); msg('#sy-in-msg','가져오지 못했습니다: '+(e&&e.message||e),true); }
 }
 const _draw=DIRECT.draw; DIRECT.draw=function(id){ if(id==='psync'){ drawPage(); return; } return _draw.apply(this,arguments); };
 
 window.SYNC={version:SV,PHONE_BASE,stamp,buildPcToPhone,buildPhoneToPc,importFromPC,importFromPhone,packFile,unpackFile,drawPage,doExport,doImport,askPw,state:()=>SY,changedSince,pendingPhotos,lastExchange,hash,TYPES,fixUid,mergeType,
-  MAIL:{cycle:mailCycle,test:mailTest,settings:mailSettings,on:mailOn,set:(c)=>{ SY.mail=normSY({mail:Object.assign({},SY.mail||{},c)}).mail; return SY.mail; },busy:()=>MAIL_BUSY,userBusy,pre:preSig,_parts:()=>PHONE?{tw:twPayload(),tomb:SY.tomb,ph:pendingPhotos().map(f=>f.id)}:{tw:twPayload(),tomb:SY.tomb,ack:SY.ack,ro:roPayload()}}};
+  MAIL:{cycle:mailCycle,test:mailTest,settings:mailSettings,on:mailOn,set:(c)=>{ SY.mail=normSY({mail:Object.assign({},SY.mail||{},c)}).mail; return SY.mail; },busy:()=>MAIL_BUSY,userBusy,typing:typingNow,pullSafe,waiting:()=>MAIL_WAIT,lastCheck:()=>MAIL_LASTCHECK,_touch:t=>{ LAST_INPUT=t==null?Date.now():t; },pre:preSig,_parts:()=>PHONE?{tw:twPayload(),tomb:SY.tomb,ph:pendingPhotos().map(f=>f.id)}:{tw:twPayload(),tomb:SY.tomb,ack:SY.ack,ro:roPayload()}}};
 })();
