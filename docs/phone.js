@@ -1,8 +1,8 @@
 /* =====================================================================
- *  이사돔 핸드폰 — 핸드폰 층 phone.js  v0.3 (2026-09-28)
+ *  이사돔 핸드폰 — 핸드폰 층 phone.js  v0.4 (2026-09-28)
  *  PC 이사돔의 화면 파일(app.js·direct.js·consult.js·todo.js·dash.js·tagup.js·quali.js·memowin.js)을 그대로 쓰고,
  *  이 파일이 맨 뒤에 읽혀 핸드폰에 맞게 덧입힙니다. PC 파일은 고치지 않습니다.
- *   - 아래 탭 줄: 홈(대시보드) · 할일 · 상담 · 메모 · 더보기(지도사업 표 · 직접 사업 요약·가계부·현황 · 지원자격 찾기 · PC 와 주고받기)
+ *   - 아래 탭 줄: 홈(대시보드) · 할일 · 상담 · 메모 · 더보기(지도사업 표 · 직접 사업 요약·가계부·현황 · 지원자격 찾기 · PC 와 주고받기(sync.js))
  *   - 핸드폰에서 안 보이는 것: 사업 등록 · 스캔 찾기 · 부가세 · 월급 계산기 · 관리 · 계획표 · 표의 칸 속 서류 목록 · 상담의 전화번호·농가명 · 메모의 농가 칸 · 대시보드 파일 찾기
  *   - 처음 한 번 이름과 비밀번호를 정하고, 그 뒤로는 열 때마다(그리고 10분 넘게 다른 앱에 갔다 오면) 비밀번호를 넣습니다
  *     (자료는 sw.js 가 핸드폰 안에 저장 · 비밀번호는 잠근 값만 남고 되찾을 수 없음 → 잊으면 핸드폰 자료를 지우고 처음부터)
@@ -10,7 +10,7 @@
 (function(){
 'use strict';
 if(!window.ISADOM_PHONE) return;
-const PV='v0.3 (2026-09-28)';
+const PV='v0.4a (2026-09-28)';
 const RELOCK_MIN=10;                                  /* 다른 앱에 이만큼 넘게 갔다 오면 다시 비밀번호 */
 const q=(s,r)=>(r||document).querySelector(s), qa=(s,r)=>[...(r||document).querySelectorAll(s)];
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -20,7 +20,7 @@ const inApp=!!(window.IsadomApp&&typeof IsadomApp.version==='function');
 
 /* ---------- 아래 탭 줄 · 더보기 ---------- */
 const TABS=[{id:'dash',l:'홈'},{id:'todo',l:'할일'},{id:'consult',l:'상담'},{id:'memo',l:'메모'},{id:'more',l:'더보기'}];
-const MORE=[{id:'grid',l:'지도사업 진행현황 표',s:'사업 × 15단계 · 보기만'},{id:'dsum',l:'직접 사업 요약',s:'보기만'},{id:'dledger',l:'가계부',s:'숫자 · 보기만'},{id:'dstat',l:'직접 사업 현황',s:'단계·서류 체크'},{id:'quali',l:'지원자격 찾기',s:''},{id:'psync',l:'PC 와 주고받기',s:'밴드로 파일 보내고 가져오기 — 준비 중'}];
+const MORE=[{id:'grid',l:'지도사업 진행현황 표',s:'사업 × 15단계 · 보기만'},{id:'dsum',l:'직접 사업 요약',s:'보기만'},{id:'dledger',l:'가계부',s:'숫자 · 보기만'},{id:'dstat',l:'직접 사업 현황',s:'단계·서류 체크'},{id:'quali',l:'지원자격 찾기',s:''},{id:'psync',l:'PC 와 주고받기',s:'밴드로 파일 보내고 가져오기'}];
 const tabOf=id=>({dash:'dash',todo:'todo',consult:'consult',memo:'memo'})[id]||'more';
 const bar=document.createElement('nav'); bar.className='pbar'; bar.id='pbar';
 bar.innerHTML=TABS.map(t=>`<button type="button" data-ptab="${t.id}"><span class="ico ${t.id}"></span>${t.l}</button>`).join('');
@@ -88,9 +88,10 @@ lock.innerHTML=`<form class="loginBox" id="plockForm" autocomplete="off" novalid
   <button type="button" class="lgBack" id="plock-forgot">비밀번호를 잊으셨나요?</button>
 </form>`;
 document.body.appendChild(lock);
-function showLock(mode){   /* 'unlock' 비밀번호 확인 · 'set' 비밀번호가 아직 없는 자료(옛 판)면 정하기 */
-  LOCKED=true; lock.dataset.mode=mode; lock.hidden=false;
-  q('#plock-sub').textContent=mode==='set'?'이 핸드폰의 이사돔에 비밀번호를 정해 주세요 (4글자 이상)':(myName()?`${myName()} 님 — 비밀번호를 넣어 주세요`:'비밀번호를 넣어 주세요');
+let LOCK_NAME='';
+function showLock(mode,name){   /* 'unlock' 비밀번호 확인 · 'set' 비밀번호가 아직 없는 자료(옛 판)면 정하기 */
+  LOCKED=true; lock.dataset.mode=mode; lock.hidden=false; const nm=name||LOCK_NAME||myName(); if(nm) LOCK_NAME=nm;
+  q('#plock-sub').textContent=mode==='set'?'이 핸드폰의 이사돔에 비밀번호를 정해 주세요 (4글자 이상)':(nm?`${nm} 님 — 비밀번호를 넣어 주세요`:'비밀번호를 넣어 주세요');
   q('#plock-l2').hidden=mode!=='set'; q('#plock-forgot').hidden=mode==='set'; q('#plock-go').textContent=mode==='set'?'정하기':'열기';
   q('#plock-pw').value=''; q('#plock-pw2').value=''; q('#plock-msg').textContent='';
   setTimeout(()=>{ try{ q('#plock-pw').focus(); }catch(e){} },50);
@@ -106,7 +107,7 @@ q('#plockForm').addEventListener('submit',async e=>{
     HAS_PW=true; hideLock(); return;
   }
   if(!pw){ msg.textContent='비밀번호를 넣어 주세요.'; return; }
-  go.disabled=true; const r=await post('/api/auth/login',{email:myName(),password:pw}).catch(()=>({})); go.disabled=false;
+  go.disabled=true; const r=await post('/api/auth/login',{email:myName()||LOCK_NAME,password:pw}).catch(()=>({})); go.disabled=false;
   if(!r.ok){ msg.textContent=r.error||'비밀번호가 다릅니다.'; q('#plock-pw').value=''; q('#plock-pw').focus(); return; }
   hideLock();
 });
@@ -120,7 +121,7 @@ lock.hidden=false; LOCKED=true; q('#plock-sub').textContent=''; q('#plock-l1').h
 fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).catch(()=>null).then(info=>{
   q('#plock-l1').hidden=false; q('#plock-go').hidden=false;
   if(!info||!info.ok||!info.name){ hideLock(); return; }          /* 처음: 이름·비밀번호 정하는 화면이 뜹니다 */
-  HAS_PW=!!info.hasPw; showLock(HAS_PW?'unlock':'set');
+  HAS_PW=!!info.hasPw; showLock(HAS_PW?'unlock':'set',info.name);   /* 이름은 핸드폰 서버가 바로 알려 줌 (app.js 가 ME 를 채우기 전일 수 있어서) */
 });
 /* 비밀번호가 있는지 다시 확인 (처음 정한 직후 · 바꾼 뒤) */
 function refreshPw(){ return fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).then(i=>{ if(i&&i.ok) HAS_PW=!!i.hasPw; return HAS_PW; }).catch(()=>HAS_PW); }
@@ -138,17 +139,8 @@ document.addEventListener('click',e=>{
   }).catch(()=>alert('파일을 내려받지 못했습니다.'));
 },true);
 
-/* ---------- PC 와 주고받기 (자리) ---------- */
-function drawSync(){
-  const pg=q('#page-psync'); if(!pg) return;
-  fetch('/api/phone/info').then(r=>r.json()).catch(()=>({})).then(info=>{
-    pg.innerHTML=`<div class="lede">PC 와 주고받기</div><div class="lede-sub">사무실 PC 이사돔과 이 핸드폰은 서로 연결되지 않습니다. 잠긴 파일 하나를 <b>밴드</b>로 주고받아 맞춥니다.</div>
-      <div class="card"><h2>PC 에서 온 파일 가져오기</h2><p class="desc">밴드에서 내려받은 <b>이사돔_핸드폰_….isd</b> 파일을 고르고 이사돔 비밀번호를 넣으면, 할일·메모·상담·현황과 PC 의 표·가계부 숫자가 이 핸드폰에 들어옵니다. 양쪽에서 같은 것을 고쳤으면 나중 것이 남고 몇 개인지 알려 줍니다.</p><button type="button" class="btn primary" disabled>파일 고르기 (준비 중)</button></div>
-      <div class="card"><h2>PC 로 보낼 파일 만들기</h2><p class="desc">이 핸드폰에서 고친 할일·메모·상담·현황 체크와 새로 찍은 사진을 잠긴 파일 하나로 만들어 다운로드 폴더에 둡니다. 밴드에 올리면 PC 이사돔의 [핸드폰에서 가져오기]로 받습니다.</p><button type="button" class="btn primary" disabled>파일 만들기 (준비 중)</button></div>
-      <div class="card"><h2>이 핸드폰 안</h2><div class="kv2"><span>자료 판</span><b>${info&&info.version!=null?info.version:'—'}</b><span>마지막 저장</span><b>${info&&info.updatedAt?new Date(info.updatedAt).toLocaleString('ko-KR'):'—'}</b><span>사진·파일</span><b>${info&&info.files!=null?`${info.files}장 · ${Math.round((info.bytes||0)/1024/1024*10)/10}MB`:'—'}</b><span>핸드폰 서버</span><b>${E(info&&info.sw||'—')}</b></div>
-        <p class="hint">자료는 이 핸드폰 안(앱 저장 공간)에만 있습니다. 앱을 지우면 같이 지워지니, 중요한 것은 PC 로 보내 두세요. 비밀번호는 [더보기]에서 바꿉니다.</p></div>`;
-  });
-}
+/* ---------- PC 와 주고받기 — 화면은 sync.js(PC 와 공용)가 그립니다 ---------- */
+function drawSync(){ if(window.SYNC) SYNC.drawPage(); else { const pg=q('#page-psync'); if(pg) pg.innerHTML='<div class="card"><div class="empty">주고받기 부품(sync.js)을 읽지 못했습니다. 앱을 닫았다 다시 열어 보세요.</div></div>'; } }
 
 /* 처음(이름 없음)이면 지원자격 화면 대신 이름·비밀번호 정하는 화면을 바로 엽니다 */
 let tries=0; const t=setInterval(()=>{ tries++; if(typeof LOGGED!=='undefined'&&LOGGED){ clearInterval(t); return; } if(tries>=3&&typeof ME!=='undefined'&&!ME&&!LOCKED){ const w=q('#loginWrap'); if(w&&w.hidden){ w.hidden=false; const em=q('#lgEmail'); if(em) em.focus(); } } if(tries>40) clearInterval(t); },300);

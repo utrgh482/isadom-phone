@@ -720,3 +720,13 @@ tr.done .docbar .bar i { background: var(--accent-fill); }
 .tagup .tuChips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 8px; font-size: 12px; }
 .tagup .tuChips .tag { cursor: pointer; padding: 2px 8px; font-size: 12px; }
 .tagup .hint { margin-top: 6px; }
+
+/* ── 핸드폰과 주고받기 (sync.js v1, 2026-09-28) ── */
+.syPw { z-index: 95; }
+.msg.bad { background: var(--bad-weak); color: var(--bad); }
+.sylog { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sylog th, .sylog td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.sylog th { color: var(--muted); font-weight: 700; font-size: 11.5px; }
+.kv2 { display: grid; grid-template-columns: 96px 1fr; gap: 6px 10px; font-size: 13.5px; }
+.kv2 span { color: var(--muted); }
+#page-psync .card > .desc u { text-decoration-style: dotted; }
