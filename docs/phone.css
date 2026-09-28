@@ -1,0 +1,83 @@
+/* =====================================================================
+ *  이사돔 핸드폰 — phone.css  v0.3 (2026-09-28)
+ *  base.css · isadom.css 위에 얹어 핸드폰 배치로 바꿉니다. body.phone 일 때만 듣습니다.
+ * ===================================================================== */
+html { zoom: 1; }
+body.phone { padding-bottom: 0; overflow-x: hidden; }
+body.phone .page { max-width: 100%; }
+body.phone .side { display: none; }
+body.phone .shell { display: block; }
+body.phone .wrap { padding: 10px 12px calc(76px + env(safe-area-inset-bottom)); }
+body.phone .topbar .inner { min-height: 48px; gap: 8px; padding: 0 12px; flex-wrap: nowrap; overflow: hidden; }
+body.phone .brand { font-size: 26px; padding: 6px 2px 6px; line-height: 1.1; }
+body.phone .brand small { font-size: 10.5px; margin-bottom: 0; }
+body.phone .who { margin-bottom: 0; align-self: center; gap: 6px; min-width: 0; flex-shrink: 1; overflow: hidden; }
+body.phone .who .saveStat { overflow: hidden; text-overflow: ellipsis; }
+body.phone #saveAll, body.phone #loadAll, body.phone #myPw, body.phone #logout, body.phone .who .sep { display: none !important; }
+body.phone .who .name { font-size: 12px; color: var(--muted); }
+body.phone .card { padding: 14px 14px; border-radius: 12px; margin-bottom: 12px; }
+body.phone .card > h2 { font-size: 17px; }
+body.phone .lede { font-size: 20px; }
+body.phone .lede-sub { font-size: 13px; }
+body.phone .gridWrap { max-height: none; }
+body.phone .dash { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+body.phone .dcard { min-width: 0; }
+body.phone .dl li { min-width: 0; }
+body.phone .dl.pct li { grid-template-columns: minmax(80px, 1fr) minmax(60px, 2fr) 48px; }
+body.phone .dcard.wide { display: none; }                                   /* 파일 찾기 — 핸드폰엔 파일이 안 옴 */
+body.phone #editProj, body.phone #editTop, body.phone #del, body.phone #critEdit, body.phone #critForm, body.phone [data-tab="plan"], body.phone #addproj, body.phone #clearall { display: none !important; }   /* 표·사업 요약은 보기만 */
+body.phone #memoForm .row .hint { display: none; }                          /* 농가 칸·Ctrl+Enter 안내는 PC 이야기 */
+body.phone .prog .yearBtns { flex-wrap: wrap; }
+/* 상담: 전화번호·농가명은 PC 에서만 */
+body.phone .cinfo .f:has([data-cf="farm"]), body.phone .cinfo .f:has([data-cf="tel"]), body.phone .srow .farm, body.phone #cs-lfarm { display: none !important; }
+body.phone .cinfo .s3 { grid-column: span 6; }
+/* 메모: 농가 칸도 PC 에서만 */
+body.phone #memoForm .f:has(#mf-farm), body.phone .memo .mwho [data-mfarm], body.phone #mfarmflag { display: none !important; }
+body.phone .memoWrap { grid-template-columns: 1fr; }
+body.phone .memoSide { position: static; max-height: none; overflow: visible; order: -1; }
+/* 크게 보기: 새 창 열기는 앱에서 못 씀 */
+body.phone #v-newwin { display: none !important; }
+body.phone .panel { width: 100%; }
+/* 붙일 때 태그 상자·메모 창은 탭 줄 위로 */
+body.phone .tagup { bottom: calc(70px + env(safe-area-inset-bottom)); }
+body.phone .memoWin { bottom: calc(70px + env(safe-area-inset-bottom)); }
+
+/* ── 아래 탭 줄 ── */
+.pbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: flex; background: #fff; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+.pbar[hidden] { display: none; }
+.pbar button { flex: 1 1 0; border: 0; background: none; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--muted); padding: 7px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+.pbar button.on { color: var(--accent); }
+.pbar .ico { display: block; width: 24px; height: 24px; border-radius: 7px; background: #eef0f2; position: relative; }
+.pbar button.on .ico { background: var(--accent-fill); }
+.pbar .ico::after { content: ""; position: absolute; inset: 6px; border-radius: 3px; border: 2px solid #9aa3ad; }
+.pbar button.on .ico::after { border-color: var(--accent-ink); }
+.pbar .ico.dash::after { border-radius: 50%; }
+.pbar .ico.todo::after { border-radius: 3px; width: 8px; height: 5px; inset: auto; left: 7px; top: 8px; border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+.pbar .ico.consult::after { border-radius: 8px 8px 8px 2px; }
+.pbar .ico.memo::after { border-radius: 2px; inset: 6px 7px; }
+.pbar .ico.more::after { border: 0; width: 4px; height: 4px; border-radius: 50%; background: #9aa3ad; inset: auto; left: 10px; top: 10px; box-shadow: -6px 0 0 #9aa3ad, 6px 0 0 #9aa3ad; }
+.pbar button.on .ico.more::after { background: var(--accent-ink); box-shadow: -6px 0 0 var(--accent-ink), 6px 0 0 var(--accent-ink); }
+
+/* ── 더보기 (아래에서 올라오는 판) ── */
+.pmore { position: fixed; inset: 0; z-index: 80; }
+.pmore[hidden] { display: none; }
+.pmore .pmscrim { position: absolute; inset: 0; background: rgba(24,30,26,.35); opacity: 0; transition: opacity .18s; }
+.pmore .pmbox { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 16px 16px 0 0; padding: 8px 12px calc(14px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform .18s; box-shadow: 0 -8px 30px rgba(0,0,0,.18); }
+.pmore.open .pmscrim { opacity: 1; }
+.pmore.open .pmbox { transform: none; }
+.pmhandle { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 4px auto 10px; }
+.pmlist { display: flex; flex-direction: column; gap: 6px; }
+.pmlist button { text-align: left; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 11px 14px; font: inherit; cursor: pointer; }
+.pmlist button b { display: block; font-size: 15px; }
+.pmlist button small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.pmfoot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+.pmfoot .faint { margin-left: auto; font-size: 11px; }
+.kv2 { display: grid; grid-template-columns: 96px 1fr; gap: 6px 10px; font-size: 13.5px; }
+.kv2 span { color: var(--muted); }
+
+/* ── 잠금 화면 (열 때마다 비밀번호) — 뒤가 안 비치게 ── */
+body.phone .plock { background: #f5f6f8; backdrop-filter: none; z-index: 900; }
+body.phone .plock .loginBox h1 { font-size: 30px; }
+body.phone .plock .loginBox h1 small { font-size: 13px; }
+body.phone .plock .lgBack { margin-top: 16px; }
+body.phone #pwWrap, body.phone #loginWrap { z-index: 85; }

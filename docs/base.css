@@ -1,0 +1,400 @@
+/* ====== 랩관리(yeoju_lab_v2/public/style.css)에서 그대로 가져온 공통 규칙 ====== */
+/* =====================================================================
+ *  글꼴
+ * ---------------------------------------------------------------------
+ *  제목 : 여주 도자체 — 파일을 프로그램 안에 넣어 두었습니다(public/fonts).
+ *         그래서 보는 사람 PC 에 뭐가 깔려 있든, 폐쇄망이든 똑같이 보입니다.
+ *         저작권 : 여주시 · 공공누리 제1유형(출처표시) — fonts/여주도자체-출처.txt
+ *
+ *  본문 : 프리텐다드 — 이것도 파일을 넣어 두었습니다(Regular·Bold 두 가지).
+ *         SIL 오픈 폰트 라이선스(OFL)라 상업적 이용·배포·수정이 모두 됩니다.
+ *         라이선스 원문은 fonts/Pretendard-LICENSE.txt 입니다. 지우지 마세요.
+ *         맑은 고딕은 글꼴을 못 받았을 때를 대비한 대타로만 적어 둡니다.
+ *         ★ 맑은 고딕 파일을 프로그램에 넣어 배포하는 것은 금지입니다
+ *           (마이크로소프트 약관). 이름으로 부르는 것은 괜찮습니다.
+ *
+ *  ★ 본문 글꼴을 또 바꾸시려면 --font-body 맨 앞 이름만 바꾸면 됩니다.
+ * ===================================================================== */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('fonts/Pretendard-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pretendard';
+  src: url('fonts/Pretendard-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'YeojuCeramic';
+  src: url('fonts/yeoju-ceramic.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;   /* 글꼴을 받는 동안에도 글씨가 먼저 보입니다 */
+}
+
+:root {
+  --font-body: 'Pretendard', "맑은 고딕", "Malgun Gothic", -apple-system, system-ui, sans-serif;
+  --font-title: 'YeojuCeramic', var(--font-body);
+
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --line: #e2e5ea;
+  --line-strong: #cdd2da;
+  --text: #1b1f24;
+  --muted: #6d7480;
+  /* ── 하늘색 (2026-09-17, 본인이 고른 색 #98CCE6 — 그 전엔 초록 #98CCE6) ────
+     한 색만으로는 글씨가 안 보입니다. 밝은 색 위의 흰 글씨는 대비 2 도 안 되어
+     거의 안 읽히기 때문입니다. 그래서 같은 계열로 셋을 둡니다.
+       --accent-fill : 고른 색 그대로. 단추·칩 같은 '칠하는 곳'
+       --accent-ink  : 그 위에 얹는 글자색 (대비 6.1)
+       --accent      : 흰 바탕에 쓰는 글자·테두리색 (대비 6.7)
+       --accent-weak : 고른 색에 투명도만 준 것. 탭 하이라이트·알약 배경
+     ★ 색을 또 바꾸시려면 아래 여섯 줄과 isadom.css 의 '연한 바탕' 네 곳을 같이 바꿉니다. */
+  --accent-fill: #98CCE6;
+  --accent-fill-hover: #7CBEDF;
+  --accent-ink: #16435A;
+  --accent: #2A627E;
+  --accent-weak: rgba(152, 204, 230, .30);
+  --accent-line: #73BADD;   /* 제목 밑 선 — 고른 색보다 한 톤 진하게 */
+  --warn: #9a6700;
+  --warn-weak: #fff8e5;
+  --bad: #b42318;
+  --bad-weak: #fdecea;
+  --info: #1c4e80;
+  --info-weak: #eaf1f9;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+/* ── 화면 전체 크기 (2026-09-12) ─────────────────────────────────
+   글자만 키우면 칸과 여백은 그대로여서 글씨가 칸에 꽉 차 답답해집니다.
+   그래서 글자·칸·여백·단추를 한꺼번에 10% 키웁니다. 지금 균형이 그대로 유지됩니다.
+   ★ 더 키우거나 줄이시려면 아래 1.1 을 1.15, 1.05 처럼 바꾸면 됩니다.
+   ★ 보는 분마다 다르게 하고 싶으면 브라우저에서 Ctrl + 마우스휠 로 조절하시면 되고,
+     그 크기는 이 주소에 대해 그대로 기억됩니다 (Ctrl + 0 이면 되돌아옵니다). */
+html { zoom: 1.1; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  /* ★ 한글은 그냥 두면 '자유롭게' 가 '자 / 유롭게' 처럼 낱말 가운데서 끊깁니다.
+     띄어쓰기에서만 줄을 바꾸게 합니다. 긴 영문·파일이름은 예외로 끊어 줍니다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  /* ★ 마지막 줄에 '않습니다.' 한 마디만 외톨이로 떨어지지 않게, 앞줄에서 미리
+     나누어 줍니다. (요즘 브라우저만 알아듣고, 모르는 브라우저는 그냥 넘어갑니다) */
+  text-wrap: pretty;
+}
+
+/* ── 상단 막대 ───────────────────────────────────────────── */
+.topbar {
+  /* 제목 밑 선 — 테마색보다 한 톤 진한 초록입니다.
+     (개발본에서는 아래 devMode 규칙이 주황 줄무늬로 덮어씁니다) */
+  background: #fff; border-bottom: 2px solid var(--accent-line);
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar .inner {
+  /* ★ 아래 .shell 과 같은 폭·여백입니다. 그래야 제목과 대분류 글자가
+     왼쪽에서 같은 자리에서 시작합니다. 한쪽만 고치면 어긋납니다. */
+  max-width: 1460px; margin: 0 auto; padding: 0 16px;
+  display: flex; align-items: center; gap: 20px; min-height: 56px; flex-wrap: wrap;
+}
+/* 제목 — 지금 크기의 3배 (2026-09-12, 본인이 고르심)
+   왼쪽 padding 은 대분류 단추(.group)의 안쪽 여백과 같은 값입니다. */
+.brand {
+  font-family: var(--font-title);
+  /* ★ 도자체는 굵기가 하나(400)뿐입니다. 그보다 굵게 적으면 브라우저가 억지로
+     부풀려 그려서 획 사이가 메워집니다. 400 이 이 글꼴의 진짜 모양입니다. */
+  font-weight: 400; font-size: 45px; line-height: 1.15; letter-spacing: -.5px;
+  white-space: nowrap; padding: 8px 10px 10px;
+}
+.brand small {
+  display: block; font-weight: 400; font-size: 15px; color: var(--muted);
+  letter-spacing: -.2px; margin-bottom: 1px;   /* 기관 이름이 위로 올라갑니다 */
+}
+/* ── 왼쪽 차림표 ─────────────────────────────────────────── */
+.shell { display: flex; align-items: flex-start; max-width: 1460px; margin: 0 auto; }
+.side {
+  flex: 0 0 196px; width: 196px;
+  padding: 18px 8px 60px 16px;
+  /* ★ 제목줄 높이만큼 내려 붙이고, 그만큼 뺀 높이로 잡습니다.
+     예전에는 56px 로 박아 두었는데, 제목을 3배로 키운 뒤로 제목줄이 90px 쯤
+     되면서 차림표 아래쪽(공개 대시보드 탭들)이 화면 밖으로 밀려 잘렸습니다.
+     --topH 는 app.js 가 창 크기에 맞춰 재서 넣어 줍니다. */
+  position: sticky; top: var(--topH, 56px); align-self: flex-start;
+  max-height: var(--sideMax, calc(100vh - 56px)); overflow: auto;
+}
+.sideBlock + .sideBlock { margin-top: 10px; }
+.sideBlock:not(.open) .tabs { display: none; }
+/* 아래에 탭이 하나뿐인 묶음은 이름이 겹치니 탭 줄을 감춥니다 */
+.sideBlock.solo .tabs { display: none; }
+.tabs { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px; }
+.tab {
+  padding: 6px 12px 6px 32px;   /* 대분류보다 한 칸 들여씁니다 */
+  border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--muted);
+  border-radius: 7px; width: 100%;
+}
+.tab:hover { background: #f1f3f5; color: var(--text); }
+.tab.on { background: var(--accent-weak); color: var(--accent); }
+/* 이름·비밀번호·나가기 — 원래 자리(오른쪽)에 두되 조금 아래로 (2026-09-12) */
+.who {
+  margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px;
+  align-self: flex-end; margin-bottom: 12px;
+}
+.who .name { font-weight: 700; }
+
+/* ── 본문 ────────────────────────────────────────────────── */
+.wrap { flex: 1 1 auto; min-width: 0; padding: 20px 24px 80px; }
+.page { display: none; }
+.page.on { display: block; }
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; padding: 18px 20px; margin-bottom: 16px;
+}
+.card > h2 {
+  /* 왼쪽 대분류 글자와 같은 크기입니다 (.group 참고) */
+  margin: 0 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -.4px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.card > .desc { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+
+/* ── 요약 타일 ───────────────────────────────────────────── */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tile {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  padding: 13px 15px; cursor: pointer; text-align: left;
+  font: inherit; color: inherit;
+}
+.tile:hover { border-color: var(--line-strong); }
+.tile.on { border-color: var(--accent-line); background: var(--accent-weak); }
+/* '오늘 접수' 로 보고 있을 때 — 한눈에 알아보게 */
+.tile.today { border-color: var(--accent-line); background: var(--accent-weak); }
+.tile .sub.hint { color: var(--accent); font-weight: 700; }
+.tile .n { font-size: 24px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tile.bad .n { color: var(--bad); }
+
+/* ── 입력 ────────────────────────────────────────────────── */
+input, select, textarea, button { font: inherit; font-family: inherit; }
+input, select, textarea {
+  padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 7px;
+  background: #fff; color: var(--text); min-width: 0; width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accent-weak); border-color: var(--accent);
+}
+input[readonly] { background: #f7f8f9; color: var(--muted); }
+label.check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+label.check input { width: auto; }
+
+.btn {
+  padding: 8px 15px; border: 1px solid var(--line-strong); border-radius: 7px;
+  background: #fff; cursor: pointer; font-weight: 600; white-space: nowrap; width: auto;
+}
+.btn:hover { background: #f5f6f8; }
+.btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-fill-hover); border-color: var(--accent-fill-hover); }
+.btn.ghost { border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { background: #f1f3f5; color: var(--text); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.sm { padding: 4px 9px; font-size: 12px; font-weight: 600; }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+/* 내려받기 단추들만 모아 오른쪽으로 붙이는 줄 */
+.toolbar.right { justify-content: flex-end; margin-top: -4px; }
+.toolbar .grow { flex: 1 1 200px; }
+.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* ── 표 ──────────────────────────────────────────────────── */
+.tableWrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* ★ vertical-align 을 적지 않으면 '기준 품목 미지정' 같은 알약이 든 칸 때문에
+   그 줄의 다른 글자들이 위아래로 어긋나 보입니다 (기본값이 baseline 이라서입니다). */
+th, td {
+  padding: 8px 10px; text-align: left; vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+thead th {
+  background: #fafbfc; color: var(--muted); font-weight: 700; font-size: 12.5px;
+  position: sticky; top: 0; white-space: nowrap;
+}
+thead th.sortable { cursor: pointer; user-select: none; }
+thead th.sortable:hover { color: var(--text); }
+thead th .arrow { color: var(--accent); font-size: 11px; }
+tbody tr:hover { background: #fafbfc; }
+tbody tr:last-child td { border-bottom: 0; }
+/* 숫자 칸은 제목줄도 오른쪽으로 — 제목만 왼쪽이면 세로줄이 어긋나 보입니다 */
+/* 숫자 칸은 제목줄도 오른쪽으로 — 제목만 왼쪽이면 세로줄이 어긋나 보입니다.
+   ★ 너비는 예전처럼 내용에 맞춰 저절로 잡히게 둡니다 (본인이 그 간격을 더 좋아하심). */
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.nowrap, th.nowrap { white-space: nowrap; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+/* 접수 입력표 */
+table.entry td { padding: 4px 5px; }
+table.entry input, table.entry select { padding: 6px 8px; font-size: 13px; }
+table.entry td.x { width: 34px; text-align: center; }
+
+/* ── 상태 표시 ───────────────────────────────────────────── */
+.pill {
+  display: inline-block; vertical-align: middle; padding: 2px 9px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.pill.received { background: var(--info-weak); color: var(--info); }
+.pill.analyzing { background: var(--warn-weak); color: var(--warn); }
+.pill.done { background: var(--accent-weak); color: var(--accent); }
+.pill.pass { background: var(--accent-weak); color: var(--accent); }
+.pill.fail { background: var(--bad-weak); color: var(--bad); }
+.pill.grey { background: #f0f2f4; color: var(--muted); }
+
+/* ── 알림 ────────────────────────────────────────────────── */
+.msg { padding: 11px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13.5px; }
+.msg.ok { background: var(--accent-weak); color: var(--accent); }
+.msg.err { background: var(--bad-weak); color: var(--bad); }
+.msg.info { background: var(--info-weak); color: var(--info); }
+.msg:empty { display: none; }
+
+/* ── 자동완성 ────────────────────────────────────────────── */
+.ac { position: relative; }
+.ac .list {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 3px);
+  background: #fff; border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.09); max-height: 260px; overflow-y: auto; min-width: 240px;
+}
+.ac .list div { padding: 7px 11px; cursor: pointer; font-size: 13px; }
+.ac .list div:hover, .ac .list div.sel { background: var(--accent-weak); }
+.ac .list div b { font-weight: 700; }
+.ac .list div small { display: block; color: var(--muted); font-size: 11.5px; }
+
+/* ── 기준 찾아보기 결과 ──────────────────────────────────── */
+.result { background: var(--accent-weak); border-radius: 8px; padding: 15px 17px; }
+.result.err { background: var(--bad-weak); color: var(--bad); }
+.result .big { font-size: 23px; font-weight: 700; }
+.result .path { color: var(--muted); font-size: 13px; margin-top: 5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.chip { background: #eef0f2; border-radius: 20px; padding: 3px 11px; font-size: 12.5px; }
+.chip.hit { background: var(--accent-fill); color: var(--accent-ink); font-weight: 700; }
+
+.foot { color: var(--muted); font-size: 13px; margin-top: 12px; display: flex;
+  justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.foot b { color: var(--text); }
+.pager { display: inline-flex; align-items: center; gap: 10px; }
+.pageNow {
+  min-width: 78px; text-align: center; padding: 5px 12px;
+  background: var(--accent-weak); border-radius: 20px;
+  font-size: 13px; color: var(--accent);
+}
+.pageNow b { color: var(--accent); font-size: 15px; font-weight: 800; }
+
+@media (max-width: 640px) {
+  .wrap { padding: 14px 12px 60px; }
+  .card { padding: 14px 14px; }
+  .topbar .inner { padding: 0 12px; }
+}
+
+/* ── 로그인 화면 ───────────────────────────────────────────────── */
+/* 로그인 칸 — 이제 첫 화면이 아니라, 대시보드 위에 뜨는 창입니다 (2026-09-12).
+   뒤가 비치되 어둡게 깔려서 앞의 칸에 눈이 갑니다. */
+.loginWrap {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(24, 30, 26, .45); padding: 24px; z-index: 60;
+  backdrop-filter: blur(2px);
+}
+.loginBox {
+  width: 100%; max-width: 360px; background: #fff; border: 1px solid #e2e6ea;
+  border-radius: 14px; padding: 28px 26px 24px;
+  box-shadow: 0 12px 36px rgba(20, 26, 34, .10);
+}
+.loginBox h1 {
+  font-family: var(--font-title);
+  font-size: 17px; font-weight: 400; margin: 0 0 20px; line-height: 1.35;
+}
+.loginBox h1 small {
+  display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-top: 3px;
+}
+.loginBox .fld {
+  display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 12px;
+}
+.loginBox .fld input { width: 100%; margin-top: 4px; padding: 10px 12px; font-size: 14px; }
+.loginBox .btn { width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
+.loginBox .msg:empty { display: none; }
+.loginHint { font-size: 11.5px; color: var(--muted); margin-top: 14px; line-height: 1.5; }
+.loginHint:empty { display: none; }
+
+/* 대분류 (분석 관리 · 소모품 관리 · 관리) */
+.group {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; cursor: pointer;
+  font-size: 19px; font-weight: 800; color: var(--muted); letter-spacing: -.4px;
+  padding: 10px 10px; border-radius: 7px;
+}
+.group:hover { background: #f0f2f4; color: var(--text); }
+.group.on { color: var(--text); }
+
+/* 창이 좁으면 차림표를 위로 눕힙니다 */
+@media (max-width: 900px) {
+  .shell { display: block; }
+  .side {
+    width: auto; max-height: none; position: static;
+    padding: 10px 16px 0; display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .sideBlock { flex: 0 0 auto; }
+  .sideBlock + .sideBlock { margin-top: 0; }
+  .tabs { flex-direction: row; flex-wrap: wrap; }
+  .tab { width: auto; padding: 6px 12px; }
+  .group { font-size: 14px; padding: 4px 8px; }
+}
+
+/* ── 글꼴 출처표시 (공공누리 제1유형 — 링크까지 넣어야 합니다) ──────── */
+.fontCredit {
+  margin-top: 18px; padding: 10px 10px 0; border-top: 1px solid var(--line);
+  font-size: 11px; line-height: 1.5; color: #9aa0a8;
+}
+.fontCredit a { color: #9aa0a8; text-decoration: underline; }
+.fontCredit a:hover { color: var(--text); }
+.loginBox .fontCredit { margin-top: 14px; text-align: center; border-top: 0; padding: 0; }
+
+/* 로그인 전에는 공개 대시보드와 실험실 이용안내만 보입니다 (2026-09-12) */
+body.publicOnly .who,
+body.publicOnly .sideBlock:not([data-group="dash"]):not([data-group="labinfo"]) { display: none; }
+body.publicOnly .brand { cursor: default; }
+.brand { cursor: pointer; }
+/* 이용안내 끝의 작은 점 — 여기가 들어가는 문입니다 */
+.dot { cursor: default; padding: 0 4px; color: var(--muted); }
+
+/* 가린 숫자 */
+.masked { color: var(--muted); letter-spacing: 1px; }
+.dim { color: var(--muted); font-weight: 400; }
+
+/* ── 고르는 단추 묶음 ───────────────────────────────────────────── */
+.segs { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg {
+  background: #fff; border: 0; border-right: 1px solid var(--line);
+  padding: 8px 14px; cursor: pointer; font: inherit; font-size: 13px;
+  font-weight: 600; color: var(--muted);
+}
+.seg:last-child { border-right: 0; }
+.seg:hover { background: #f1f3f5; }
+.seg.on { background: var(--accent-weak); color: var(--accent); }
+
+/* ── 안내 문구 ──────────────────────────────────────────────────── */
+.dashNote {
+  background: var(--warn-weak); border: 1px solid #f0dfae; border-radius: 9px;
+  padding: 12px 16px; font-size: 13px; color: #6b4e07; line-height: 1.7;
+  margin-bottom: 16px;
+}
+.infoBody { font-size: 14px; line-height: 1.8; }
+.infoBody p { margin: 0 0 12px; }
+.infoBody p:last-child { margin-bottom: 0; }
+
+.lgBack {
+  display: block; width: 100%; margin-top: 14px; padding: 6px;
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--muted);
+}
+.lgBack:hover { color: var(--text); text-decoration: underline; }
