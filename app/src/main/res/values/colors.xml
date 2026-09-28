@@ -3,4 +3,5 @@
     <color name="sky">#98CCE6</color>
     <color name="ink">#16435A</color>
     <color name="white">#FFFFFF</color>
+    <color name="cream">#FDF7E5</color>   <!-- 앱 아이콘 바탕 (2026-09-28) -->
 </resources>
