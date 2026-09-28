@@ -158,7 +158,7 @@ globalThis.ISDCRYPT={sha256,hmac,pbkdf2,lock,unlock,zipStore,zipRead,crc32,toHex
 (function(){
 'use strict';
 if(!window.DIRECT||!window.TODO||!window.CONSULT){ console.warn('sync.js: direct.js·todo.js·consult.js 뒤에 읽혀야 합니다'); return; }
-const SV='v1.1.1 (2026-09-28)';
+const SV='v1.1.2 (2026-09-29)';
 const PHONE=!!window.ISADOM_PHONE;
 const PHONE_BASE=2000000000;                 /* 핸드폰에서 새로 만드는 번호는 20억부터 — PC 번호(작은 수)와 겹치지 않게 */
 const CR=globalThis.ISDCRYPT;   /* 암호 부품 (app.js 의 공통 서류 C 와 이름이 겹치지 않게 CR) */
@@ -167,6 +167,7 @@ const q=(s,r)=>(r||document).querySelector(s);
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const clone=o=>JSON.parse(JSON.stringify(o));
 const DS=DIRECT.DS;
+const OLD='2000-01-01T00:00:00.000Z';   /* 언제 고쳤는지 모르는 것(장부가 없던 때의 자료·되돌리기 직후)은 "아주 옛것"으로 — 상대의 진짜 고친 시각이 이기게 */
 /* 글자 → 짧은 지문 (cyrb53) — 내용이 바뀌었는지 볼 때 */
 function hash(str){ let h1=0xdeadbeef^7, h2=0x41c6ce57^7; for(let i=0;i<str.length;i++){ const ch=str.charCodeAt(i); h1=Math.imul(h1^ch,2654435761); h2=Math.imul(h2^ch,1597334677); }
   h1=Math.imul(h1^(h1>>>16),2246822507); h1^=Math.imul(h2^(h2>>>13),3266489909); h2=Math.imul(h2^(h2>>>16),2246822507); h2^=Math.imul(h1^(h1>>>13),3266489909); return (h2>>>0).toString(36)+(h1>>>0).toString(36); }
@@ -194,15 +195,21 @@ function normSY(d){ d=d&&typeof d==='object'?d:{}; const o={v:1,meta:{},tomb:{},
 let SY=normSY(null);
 const _ser=DIRECT.serialize, _load=DIRECT.load;
 DIRECT.serialize=function(){ const o=_ser.apply(this,arguments); o.sync=clone(SY); return o; };
-DIRECT.load=function(d){ _load.apply(this,arguments); SY=normSY(d&&d.sync); };
+DIRECT.load=function(d){ _load.apply(this,arguments); SY=normSY(d&&d.sync); try{ untrustBulk(); }catch(e){} };
+/* 한 번도 받아 본 적이 없는 기기의 도장이 한 순간(같은 초)에 몰려 찍혀 있으면 — 처음 도장이나 되돌리기 직후 — 그 덩어리는 "옛것"으로 고쳐 둡니다. 상대의 진짜 고친 시각이 이기게 */
+function untrustBulk(){
+  if(SY.last.recv) return; const all=[]; for(const t of TKEYS) for(const id of Object.keys(SY.meta[t])){ const u=SY.meta[t][id].u||''; if(u&&u!==OLD) all.push(u.slice(0,19)); }
+  if(all.length<5) return; const cnt={}; all.forEach(u=>{ cnt[u]=(cnt[u]||0)+1; }); const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]; if(!top||cnt[top]<Math.max(5,all.length*0.8)) return;
+  for(const t of TKEYS) for(const id of Object.keys(SY.meta[t])){ const m=SY.meta[t][id]; if((m.u||'').slice(0,19)===top) m.u=OLD; }
+}
 
 /* 고친 시각 매기기 — 자동 저장이 3초마다 부르는 stateSig 에 끼어들어, 바뀐 건에 지금 시각을 적습니다 */
 function stamp(){
   try{
     const now=iso(), old=new Date(Date.now()-180*86400000).toISOString();
     for(const t of TKEYS){
-      const meta=SY.meta[t], tomb=SY.tomb[t], seen=new Set();
-      for(const x of TYPES[t].list()){ const id=String(x.id); seen.add(id); const h=hOf(t,x); const m=meta[id]; if(!m||m.h!==h) meta[id]={h,u:now}; if(tomb[id]) delete tomb[id]; }
+      const meta=SY.meta[t], tomb=SY.tomb[t], seen=new Set(), init=Object.keys(meta).length===0;
+      for(const x of TYPES[t].list()){ const id=String(x.id); seen.add(id); const h=hOf(t,x); const m=meta[id]; if(!m) meta[id]={h,u:init?OLD:now}; else if(m.h!==h) meta[id]={h,u:now}; if(tomb[id]) delete tomb[id]; }
       for(const id of Object.keys(meta)) if(!seen.has(id)){ tomb[id]=now; delete meta[id]; }
       for(const id of Object.keys(tomb)) if(tomb[id]<old) delete tomb[id];
     }
@@ -305,7 +312,7 @@ async function importFromPC(p,opt){
   opt=opt||{}; if(!opt.mailbox) notOlder(p);   /* 손으로 고른 파일만 옛 파일 검사 (우편함은 늘 최신 것 하나라 sha 로 봄) */
   if(p.mail&&p.mail.owner&&p.mail.token&&opt.pw){ const m=SY.mail||{}; if(!m.owner||m.fromPc){ SY.mail=normSY({mail:Object.assign({},m,{owner:p.mail.owner,repo:p.mail.repo,branch:p.mail.branch||'main',token:p.mail.token,api:p.mail.api||'',pw:opt.pw,on:true,fromPc:true})}).mail; MAIL_NEW=true; } }   /* PC 가 실어 보낸 우편함 설정 — 비밀번호는 이 파일을 연 것 */
   stamp(); const lastX=lastExchange(), merged={}; for(const t of TKEYS) merged[t]=mergeType(t,p.tw&&p.tw[t],p.tomb&&p.tomb[t],lastX);
-  SY.last.recv=iso(); SY.last.recvMade=String(p.made||''); (p.ack||[]).forEach(id=>{ if(!SY.sent.includes(id)) SY.sent.push(id); });
+  SY.last.recv=iso(); SY.last.recvMade=String(p.made||''); if(Array.isArray(p.ack)) SY.sent=p.ack.slice();   /* PC 가 가진 사진 목록이 기준 — PC 가 되돌리기로 잃었으면 다시 보내집니다 (PC 는 같은 사진을 두 번 안 받음) */
   await applyMerged(snap=>{
     const ro=p.ro||{}; snap.projects=ro.projects||[]; snap.S=ro.S||{}; snap.C=ro.C||{}; if(ro.year) snap.year=ro.year; snap.memoCats=unionCats(snap.memoCats,p.memoCats||ro.memoCats);
     snap.memos=merged.memo.out.map(m=>Object.assign({farm:''},m));

@@ -1,5 +1,5 @@
 /* =====================================================================
- *  이사돔 핸드폰 — 핸드폰 층 phone.js  v0.4 (2026-09-28)
+ *  이사돔 핸드폰 — 핸드폰 층 phone.js  v0.5 (2026-09-29)
  *  PC 이사돔의 화면 파일(app.js·direct.js·consult.js·todo.js·dash.js·tagup.js·quali.js·memowin.js)을 그대로 쓰고,
  *  이 파일이 맨 뒤에 읽혀 핸드폰에 맞게 덧입힙니다. PC 파일은 고치지 않습니다.
  *   - 아래 탭 줄: 홈(대시보드) · 할일 · 상담 · 메모 · 더보기(지도사업 표 · 직접 사업 요약·가계부·현황 · 지원자격 찾기 · PC 와 주고받기(sync.js))
@@ -10,7 +10,7 @@
 (function(){
 'use strict';
 if(!window.ISADOM_PHONE) return;
-const PV='v0.4a (2026-09-28)';
+const PV='v0.5 (2026-09-29)';
 const RELOCK_MIN=10;                                  /* 다른 앱에 이만큼 넘게 갔다 오면 다시 비밀번호 */
 const q=(s,r)=>(r||document).querySelector(s), qa=(s,r)=>[...(r||document).querySelectorAll(s)];
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -127,6 +127,20 @@ fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).catch(()=>null).th
 function refreshPw(){ return fetch('/api/phone/info',{cache:'no-store'}).then(r=>r.json()).then(i=>{ if(i&&i.ok) HAS_PW=!!i.hasPw; return HAS_PW; }).catch(()=>HAS_PW); }
 /* 다른 앱에 갔다가 한참 만에 돌아오면 다시 비밀번호 */
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){ hiddenAt=Date.now(); return; } const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0; if(away>RELOCK_MIN*60000&&!LOCKED) refreshPw().then(has=>{ if(has&&!LOCKED) showLock('unlock'); }); });
+
+/* ---------- 크게 보기(사진): 꽉 채우기 · [정보] 접기/펴기 · 옆으로 밀어 넘기기 · 두 번 눌러 확대 ---------- */
+(function(){
+  const v=q('#viewer'); if(!v) return;
+  qa('.vtop .vc',v).forEach(el=>{ if(/넘기기/.test(el.textContent)) el.classList.add('vhint'); });
+  const btn=document.createElement('button'); btn.type='button'; btn.className='vinfo'; btn.textContent='정보'; const close=q('#v-close',v); if(close) close.before(btn); else q('.vtop',v).appendChild(btn);
+  btn.addEventListener('click',()=>{ v.classList.toggle('info'); btn.classList.toggle('on',v.classList.contains('info')); });
+  const stage=q('#v-stage',v); let t0=null, lastTap=0;
+  stage.addEventListener('touchstart',e=>{ if(e.touches.length!==1) return; t0={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()}; },{passive:true});
+  stage.addEventListener('touchend',e=>{ if(!t0) return; const c=e.changedTouches[0], dx=c.clientX-t0.x, dy=c.clientY-t0.y, dt=Date.now()-t0.t; t0=null;
+    if(!stage.classList.contains('zoom')&&Math.abs(dx)>60&&Math.abs(dy)<70&&dt<600){ v.dispatchEvent(new KeyboardEvent('keydown',{key:dx<0?'ArrowRight':'ArrowLeft',bubbles:true})); return; }
+    if(Math.abs(dx)<12&&Math.abs(dy)<12&&dt<300){ const now=Date.now(); if(now-lastTap<320){ stage.classList.toggle('zoom'); lastTap=0; if(stage.classList.contains('zoom')){ stage.scrollLeft=(stage.scrollWidth-stage.clientWidth)/2; stage.scrollTop=(stage.scrollHeight-stage.clientHeight)/2; } } else lastTap=now; } },{passive:true});
+  const _rv=window.renderViewer; if(typeof _rv==='function') window.renderViewer=function(){ stage.classList.remove('zoom'); return _rv.apply(this,arguments); };
+})();
 
 /* ---------- 크게 보기: 내려받기는 앱의 다운로드 폴더로 ---------- */
 document.addEventListener('click',e=>{
